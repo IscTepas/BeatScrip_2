@@ -1,5 +1,5 @@
 """
-MusicLang — Analizador Léxico (Etapa 1)
+BeatScript — Analizador Léxico (Etapa 1)
 ========================================
 Compilador de lenguaje de composición musical → MIDI
 
@@ -187,7 +187,7 @@ def build_lexer() -> lex.Lexer:
 
 def tokenize(source_code: str, *, debug: bool = False) -> list:
     """
-    Tokeniza el código fuente MusicLang.
+    Tokeniza el código fuente BeatScript.
 
     Args:
         source_code: Texto del programa.
@@ -211,7 +211,7 @@ def _print_token_table(token_list: list, source: str = "") -> None:
     """Imprime la tabla de tokens con formato de consola."""
     W = 68
     print("\n" + "=" * W)
-    print(f"{'TABLA DE TOKENS — MusicLang Lexer':^{W}}")
+    print(f"{'TABLA DE TOKENS — BeatScript Lexer':^{W}}")
     print("=" * W)
     print(f"{'#':<5} {'TIPO':<18} {'VALOR':<20} {'LÍNEA':<7} {'COL'}")
     print("-" * W)
@@ -229,7 +229,7 @@ def _print_token_table(token_list: list, source: str = "") -> None:
 
 if __name__ == "__main__":
     SAMPLE = """\
-# ---- Ejemplo completo MusicLang ----
+# ---- Ejemplo completo BeatScript ----
 tempo 120
 
 instrument piano

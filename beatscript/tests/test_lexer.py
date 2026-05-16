@@ -1,5 +1,5 @@
 """
-test_lexer.py — Pruebas del Analizador Léxico de MusicLang
+test_lexer.py — Pruebas del Analizador Léxico de BeatScript
 ===========================================================
 Cubre: keywords, notas, duraciones, instrumentos, números,
        identificadores, comentarios, errores léxicos.
@@ -10,7 +10,7 @@ import os
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from musiclang.lexer import tokenize
+from beatscript.lexer import tokenize
 
 # =============================================================
 # Utilidad de aserción
@@ -266,7 +266,7 @@ def test_debug_mode():
 
 if __name__ == "__main__":
     print("=" * 55)
-    print("  PRUEBAS DEL ANALIZADOR LEXICO - MusicLang")
+    print("  PRUEBAS DEL ANALIZADOR LEXICO - BeatScript")
     print("=" * 55)
 
     test_keywords()

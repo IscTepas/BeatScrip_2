@@ -1,4 +1,4 @@
-# MusicLang — Compilador de lenguaje musical → MIDI
+# BeatScript — Compilador de lenguaje musical → MIDI
 
 Proyecto universitario de **Compiladores**.  
 Lenguaje DSL para composición musical que genera archivos MIDI.
@@ -10,7 +10,7 @@ Compiladores/
 ├── requirements.txt       # Dependencias Python
 ├── README.md
 ├── .gitignore
-└── musiclang/
+└── beatscript/
     ├── __init__.py
     ├── lexer.py           # Etapa 1: Analizador Léxico
     └── tests/
@@ -36,7 +36,7 @@ pip install -r requirements.txt
 Desde la carpeta `C:\Compiladores\`:
 
 ```
-python -X utf8 musiclang/lexer.py
+python -X utf8 beatscript/lexer.py
 ```
 
 Verás la tabla de tokens para el programa de ejemplo.
@@ -44,12 +44,12 @@ Verás la tabla de tokens para el programa de ejemplo.
 ## Cómo correr los tests
 
 ```
-python -X utf8 musiclang/tests/test_lexer.py
+python -X utf8 beatscript/tests/test_lexer.py
 ```
 
 Resultado esperado: **74/74 tests pasados**.
 
-## Ejemplo de código MusicLang
+## Ejemplo de código BeatScript
 
 ```
 # Mi primera cancion
