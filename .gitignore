@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# PLY genera estos archivos temporales
+parser.out
+parsetab.py
+
+# Entornos virtuales
+venv/
+env/
+.venv/
+
+# IDEs
+.vscode/
+.idea/
+*.suo
+
+# OS
+.DS_Store
+Thumbs.db
