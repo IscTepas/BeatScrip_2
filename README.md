@@ -99,4 +99,10 @@ chord {
 - [ ] Etapa 5: Interfaz visual
 
 ## Equipo
-<!-- Agrega los nombres del equipo aqui -->
+
+| Nombre                          |
+| ------------------------------- |
+| Rojas González Moisés Emmanuel  |
+| Canales Navarro Christian Yael  |
+| Nuñez Carvajal Jose Tadeo       |
+| Rodriguez Flores Iker Gustavo   |
