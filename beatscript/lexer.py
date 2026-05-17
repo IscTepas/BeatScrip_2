@@ -34,6 +34,7 @@ RESERVED: dict[str, str] = {
     "repeat"      : "REPEAT_KW",
     "chord"       : "CHORD_KW",
     "rest"        : "REST",
+    "volume"      : "VOLUME_KW",
 
     # Duraciones musicales
     "redonda"     : "DURATION",
@@ -44,24 +45,47 @@ RESERVED: dict[str, str] = {
     "fusa"        : "DURATION",
     "semifusa"    : "DURATION",
 
-    # Instrumentos MIDI (General MIDI program numbers asignados en generacion)
+    # Instrumentos MIDI — cuerdas
     "piano"       : "INSTR_NAME",
-    "guitar"      : "INSTR_NAME",
     "violin"      : "INSTR_NAME",
-    "flute"       : "INSTR_NAME",
-    "drums"       : "INSTR_NAME",
-    "bass"        : "INSTR_NAME",
-    "trumpet"     : "INSTR_NAME",
+    "viola"       : "INSTR_NAME",
     "cello"       : "INSTR_NAME",
-    "saxophone"   : "INSTR_NAME",
-    "organ"       : "INSTR_NAME",
+    "contrabass"  : "INSTR_NAME",
     "harp"        : "INSTR_NAME",
-    "harpsichord" : "INSTR_NAME",
+
+    # Instrumentos MIDI — vientos madera
+    "flute"       : "INSTR_NAME",
+    "piccolo"     : "INSTR_NAME",
+    "recorder"    : "INSTR_NAME",
+    "oboe"        : "INSTR_NAME",
+    "clarinet"    : "INSTR_NAME",
+    "bassoon"     : "INSTR_NAME",
+    "saxophone"   : "INSTR_NAME",
+
+    # Instrumentos MIDI — vientos metal
+    "trumpet"     : "INSTR_NAME",
+    "trombone"    : "INSTR_NAME",
+    "frenchhorn"  : "INSTR_NAME",
+    "tuba"        : "INSTR_NAME",
+
+    # Instrumentos MIDI — percusión melódica
     "marimba"     : "INSTR_NAME",
     "vibraphone"  : "INSTR_NAME",
-    "clarinet"    : "INSTR_NAME",
-    "oboe"        : "INSTR_NAME",
-    "tuba"        : "INSTR_NAME",
+    "xylophone"   : "INSTR_NAME",
+    "celesta"     : "INSTR_NAME",
+    "drums"       : "INSTR_NAME",
+
+    # Instrumentos MIDI — cuerdas pulsadas / folk
+    "guitar"      : "INSTR_NAME",
+    "bass"        : "INSTR_NAME",
+    "banjo"       : "INSTR_NAME",
+    "sitar"       : "INSTR_NAME",
+    "harpsichord" : "INSTR_NAME",
+
+    # Instrumentos MIDI — teclados y otros
+    "organ"       : "INSTR_NAME",
+    "accordion"   : "INSTR_NAME",
+    "harmonica"   : "INSTR_NAME",
 }
 
 # =============================================================
@@ -76,6 +100,7 @@ tokens = (
     "REPEAT_KW",
     "CHORD_KW",
     "REST",
+    "VOLUME_KW",
     "NOTE",
     "DURATION",
     "INSTR_NAME",

@@ -349,9 +349,12 @@ class BeatScriptIDE(ctk.CTk):
         import re
         avisos = []
         instrumentos_validos = {
-            "piano", "guitar", "violin", "flute", "drums", "bass",
-            "trumpet", "cello", "saxophone", "organ", "harp",
-            "harpsichord", "marimba", "vibraphone", "clarinet", "oboe", "tuba",
+            "piano", "violin", "viola", "cello", "contrabass", "harp",
+            "flute", "piccolo", "recorder", "oboe", "clarinet", "bassoon", "saxophone",
+            "trumpet", "trombone", "frenchhorn", "tuba",
+            "marimba", "vibraphone", "xylophone", "celesta", "drums",
+            "guitar", "bass", "banjo", "sitar", "harpsichord",
+            "organ", "accordion", "harmonica",
         }
         i = 0
         while i < len(tokens):
@@ -375,6 +378,22 @@ class BeatScriptIDE(ctk.CTk):
                         f"[AVISO] Línea {siguiente.lineno}, Col {col}: "
                         f"se esperaba un número después de 'tempo', se encontró '{siguiente.value}'"
                     )
+
+            elif tok.type == "VOLUME_KW":
+                siguiente = tokens[i + 1] if i + 1 < len(tokens) else None
+                if siguiente and siguiente.type != "NUMBER":
+                    col = self._calcular_columna(source, siguiente)
+                    avisos.append(
+                        f"[AVISO] Línea {siguiente.lineno}, Col {col}: "
+                        f"'volume' requiere un número entre 0 y 127, se encontró '{siguiente.value}'"
+                    )
+                elif siguiente and siguiente.type == "NUMBER":
+                    if not (0 <= siguiente.value <= 127):
+                        col = self._calcular_columna(source, siguiente)
+                        avisos.append(
+                            f"[AVISO] Línea {siguiente.lineno}, Col {col}: "
+                            f"volumen {siguiente.value} fuera de rango — usa un valor entre 0 y 127"
+                        )
 
             elif tok.type == "NOTE" or tok.type == "REST":
                 siguiente = tokens[i + 1] if i + 1 < len(tokens) else None
@@ -448,25 +467,71 @@ class BeatScriptIDE(ctk.CTk):
     # ── Código de ejemplo al iniciar ──────────────────────────────────────────
     def _cargar_ejemplo(self):
         ejemplo = """\
-# Mi primera cancion en BeatScript
-tempo 120
+# Oda a la Alegría — BeatScript
+tempo 110
+volume 80
 
-instrument piano
+instrument violin
 
-track melody {
+track melodia {
+    E4 negra
+    E4 negra
+    F4 negra
+    G4 negra
+    G4 negra
+    F4 negra
+    E4 negra
+    D4 negra
+    C4 negra
     C4 negra
     D4 negra
+    E4 negra
     E4 blanca
-    rest corchea
+    D4 blanca
 }
 
-repeat 2 {
-    G4 negra
-    A4 corchea
+volume 70
+instrument cello
+
+track acompanamiento {
+    C3 blanca
+    G3 blanca
+    C3 blanca
+    G3 blanca
+    F3 blanca
+    C3 blanca
+    G3 blanca
+    G3 blanca
 }
+
+tempo 120
+volume 90
+instrument frenchhorn
+
+repeat 2 {
+    C4 negra
+    E4 negra
+    G4 negra
+    rest negra
+}
+
+volume 100
+instrument piano
 
 chord {
     C4 E4 G4 blanca
+}
+
+chord {
+    F4 A4 C5 blanca
+}
+
+chord {
+    G4 B4 D5 blanca
+}
+
+chord {
+    C4 E4 G4 C5 redonda
 }
 """
         self.editor.delete("1.0", "end")

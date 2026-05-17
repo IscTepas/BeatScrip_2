@@ -7,12 +7,14 @@ Lenguaje DSL para composición musical que genera archivos MIDI.
 
 ```
 Compiladores/
+├── main_gui.py            # IDE visual (BeatScript IDE)
 ├── requirements.txt       # Dependencias Python
 ├── README.md
 ├── .gitignore
 └── beatscript/
     ├── __init__.py
     ├── lexer.py           # Etapa 1: Analizador Léxico
+    ├── midi_gen.py        # Generador MIDI directo desde tokens
     └── tests/
         └── test_lexer.py  # 74 casos de prueba
 ```
@@ -31,15 +33,19 @@ Instalar dependencias:
 pip install -r requirements.txt
 ```
 
-## Cómo correr el demo del lexer
+## Cómo correr el IDE
 
 Desde la carpeta `C:\Compiladores\`:
 
 ```
-python -X utf8 beatscript/lexer.py
+python main_gui.py
 ```
 
-Verás la tabla de tokens para el programa de ejemplo.
+## Cómo correr el demo del lexer (consola)
+
+```
+python -X utf8 beatscript/lexer.py
+```
 
 ## Cómo correr los tests
 
@@ -52,25 +58,55 @@ Resultado esperado: **74/74 tests pasados**.
 ## Ejemplo de código BeatScript
 
 ```
-# Mi primera cancion
-tempo 120
+# Oda a la Alegría — BeatScript
+tempo 110
+volume 80
 
-instrument piano
+instrument violin
 
-track melody {
+track melodia {
+    E4 negra
+    E4 negra
+    F4 negra
+    G4 negra
+    G4 negra
+    F4 negra
+    E4 negra
+    D4 negra
+    C4 negra
     C4 negra
     D4 negra
+    E4 negra
     E4 blanca
-    rest corchea
+    D4 blanca
 }
+
+volume 70
+instrument cello
+
+track acompanamiento {
+    C3 blanca
+    G3 blanca
+    C3 blanca
+    G3 blanca
+}
+
+tempo 120
+volume 90
+instrument frenchhorn
 
 repeat 2 {
+    C4 negra
+    E4 negra
     G4 negra
-    A4 corchea
+    rest negra
 }
 
+volume 100
+instrument piano
+
 chord {
-    C4 E4 G4 blanca
+    C4 E4 G4 C5 redonda
 }
 ```
 
@@ -79,6 +115,7 @@ chord {
 | Token | Descripcion | Ejemplo |
 |-------|-------------|---------|
 | `TEMPO_KW` | Velocidad en BPM | `tempo 120` |
+| `VOLUME_KW` | Volumen MIDI (0–127) | `volume 90` |
 | `INSTRUMENT_KW` | Seleccion de instrumento | `instrument piano` |
 | `TRACK_KW` | Inicio de pista | `track melody {` |
 | `REPEAT_KW` | Repeticion de bloque | `repeat 2 {` |
@@ -89,6 +126,29 @@ chord {
 | `INSTR_NAME` | Nombre de instrumento | `piano`, `violin` |
 | `NUMBER` | Numero entero | `120`, `2` |
 | `IDENTIFIER` | Nombre de track | `melody`, `coro` |
+
+## Instrumentos disponibles
+
+| Categoria | Instrumentos |
+| --------- | ------------ |
+| Cuerdas | `piano`, `violin`, `viola`, `cello`, `contrabass`, `harp` |
+| Vientos madera | `flute`, `piccolo`, `recorder`, `oboe`, `clarinet`, `bassoon`, `saxophone` |
+| Vientos metal | `trumpet`, `trombone`, `frenchhorn`, `tuba` |
+| Percusion melodica | `marimba`, `vibraphone`, `xylophone`, `celesta`, `drums` |
+| Cuerdas pulsadas | `guitar`, `bass`, `banjo`, `sitar`, `harpsichord` |
+| Teclados y otros | `organ`, `accordion`, `harmonica` |
+
+## Duraciones disponibles
+
+| Token | Beats |
+| ----- | ----- |
+| `redonda` | 4.0 |
+| `blanca` | 2.0 |
+| `negra` | 1.0 |
+| `corchea` | 0.5 |
+| `semicorchea` | 0.25 |
+| `fusa` | 0.125 |
+| `semifusa` | 0.0625 |
 
 ## Etapas del compilador (roadmap)
 
