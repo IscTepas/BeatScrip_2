@@ -1,3 +1,4 @@
 ply>=3.11
 midiutil>=1.2.1
 customtkinter>=5.2.0
+pygame-ce>=2.5.0

@@ -5,6 +5,8 @@
 import tkinter as tk
 from tkinter import ttk
 import customtkinter as ctk
+import pygame
+import os
 
 # Apariencia global
 ctk.set_appearance_mode("dark")
@@ -62,6 +64,9 @@ class BeatScriptIDE(ctk.CTk):
         self.geometry("1200x800")
         self.state("zoomed")  # maximizada en Windows
 
+        pygame.mixer.pre_init(44100, -16, 2, 512)
+        pygame.mixer.init()
+
         self._build_toolbar()
         self._build_main_area()
         self._build_console()
@@ -88,6 +93,16 @@ class BeatScriptIDE(ctk.CTk):
             font=ctk.CTkFont(size=13, weight="bold"),
             width=210,
             command=self._compilar,
+        ).pack(side="left", padx=(0, 10), pady=10)
+
+        ctk.CTkButton(
+            toolbar,
+            text="⏹  Detener",
+            fg_color="#b71c1c",
+            hover_color="#c62828",
+            font=ctk.CTkFont(size=13),
+            width=120,
+            command=self._detener,
         ).pack(side="left", padx=(0, 10), pady=10)
 
         ctk.CTkButton(
@@ -307,6 +322,21 @@ class BeatScriptIDE(ctk.CTk):
             )
 
         self._log(f"✔  Análisis léxico completado — {len(tokens)} tokens encontrados.")
+
+        # Generar y reproducir MIDI
+        try:
+            from beatscript.midi_gen import tokens_to_midi
+            midi_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "output.mid")
+            tokens_to_midi(tokens, midi_path)
+            pygame.mixer.music.load(midi_path)
+            pygame.mixer.music.play()
+            self._log("♪  Reproduciendo output.mid ...")
+        except Exception as e:
+            self._log(f"⚠  No se pudo reproducir el MIDI: {e}")
+
+    def _detener(self):
+        pygame.mixer.music.stop()
+        self._log("⏹  Reproducción detenida.")
 
     def _calcular_columna(self, source: str, token) -> int:
         line_start = source.rfind("\n", 0, token.lexpos) + 1
