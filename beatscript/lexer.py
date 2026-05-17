@@ -164,15 +164,56 @@ t_ignore = " \t\r"
 
 # --- Manejo de errores léxicos -------------------------------
 def t_error(t):
-    col = _find_column(t.lexer.lexdata, t)
-    print(f"[ERROR LÉXICO] Línea {t.lineno}, Col {col}: "
-          f"carácter no reconocido '{t.value[0]}'")
+    col  = _find_column(t.lexer.lexdata, t)
+    char = t.value[0]
+    msg  = _build_error_msg(char, t.lineno, col)
+    if hasattr(t.lexer, "error_list"):
+        t.lexer.error_list.append({"line": t.lineno, "col": col, "char": char, "msg": msg})
+    else:
+        print(msg)
     t.lexer.skip(1)
 
 
 # =============================================================
 # 4. UTILIDADES
 # =============================================================
+
+# Mensajes de error específicos por carácter
+_ERROR_HINTS: dict[str, str] = {
+    "@":  "El símbolo '@' no pertenece al alfabeto de BeatScript.",
+    "!":  "El operador '!' no existe en BeatScript.",
+    "$":  "El símbolo '$' no es válido.",
+    "%":  "El símbolo '%' no es válido.",
+    "^":  "El símbolo '^' no es válido.",
+    "&":  "El símbolo '&' no es válido.",
+    "*":  "Para repetir bloques usa: repeat N { ... }",
+    "(":  "Paréntesis no válido — los bloques se delimitan con { }",
+    ")":  "Paréntesis no válido — los bloques se delimitan con { }",
+    "[":  "Corchete no válido — los bloques se delimitan con { }",
+    "]":  "Corchete no válido — los bloques se delimitan con { }",
+    ";":  "El ';' no es necesario — cada instrucción va en su propia línea.",
+    ":":  "El ':' no es válido en BeatScript.",
+    '"':  "Las cadenas de texto no son válidas en BeatScript.",
+    "'":  "Las cadenas de texto no son válidas en BeatScript.",
+    "+":  "El operador '+' no existe en BeatScript.",
+    "-":  "El operador '-' no existe — los valores negativos no son válidos.",
+    "=":  "El operador '=' no existe en BeatScript.",
+    "<":  "El operador '<' no existe en BeatScript.",
+    ">":  "El operador '>' no existe en BeatScript.",
+    ",":  "Separa notas con espacios, no con comas: C4 E4 G4 blanca",
+    ".":  "El '.' no es válido — BeatScript no usa decimales.",
+    "/":  "Para comentarios usa '#', no '/' ni '//'.",
+    "\\":  "El '\\' no es válido en BeatScript.",
+    "|":  "El '|' no es válido en BeatScript.",
+    "~":  "El '~' no es válido en BeatScript.",
+    "?":  "El '?' no es válido en BeatScript.",
+}
+
+
+def _build_error_msg(char: str, line: int, col: int) -> str:
+    hint = _ERROR_HINTS.get(char, f"'{char}' no pertenece al alfabeto de BeatScript.")
+    return f"[ERROR LÉXICO] Línea {line}, Col {col}: carácter '{char}' no reconocido — {hint}"
+
 
 def _find_column(source: str, token) -> int:
     """Calcula la columna de un token dentro de su línea."""
@@ -185,18 +226,21 @@ def build_lexer() -> lex.Lexer:
     return lex.lex()
 
 
-def tokenize(source_code: str, *, debug: bool = False) -> list:
+def tokenize(source_code: str, *, debug: bool = False, collect_errors: bool = False):
     """
     Tokeniza el código fuente BeatScript.
 
     Args:
-        source_code: Texto del programa.
-        debug:       Si True, imprime la tabla de tokens por consola.
+        source_code:    Texto del programa.
+        debug:          Si True, imprime la tabla de tokens por consola.
+        collect_errors: Si True, retorna (tokens, errores) en vez de solo tokens.
 
     Returns:
-        Lista de LexToken con atributos: .type, .value, .lineno, .lexpos
+        Lista de LexToken, o tupla (lista, lista_errores) si collect_errors=True.
     """
+    errors = []
     lx = build_lexer()
+    lx.error_list = errors
     lx.input(source_code)
 
     result = list(lx)
@@ -204,6 +248,8 @@ def tokenize(source_code: str, *, debug: bool = False) -> list:
     if debug:
         _print_token_table(result, source_code)
 
+    if collect_errors:
+        return result, errors
     return result
 
 

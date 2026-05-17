@@ -302,18 +302,25 @@ class BeatScriptIDE(ctk.CTk):
         try:
             # ── Integración real con beatscript/lexer.py ──────────────────────
             from beatscript.lexer import tokenize
-            tokens = tokenize(source)
+            tokens, errors = tokenize(source, collect_errors=True)
 
         except ImportError:
             # ── Mock temporal si el módulo no se encuentra ────────────────────
             self._log("⚠  [Mock] beatscript.lexer no encontrado — usando datos de prueba")
-            tokens = self._mock_tokens()
+            tokens, errors = self._mock_tokens(), []
 
         except Exception as e:
             self._log(f"✗  Error durante el análisis léxico: {e}")
             return
 
-        # Llenar tabla de tokens
+        # Reportar errores léxicos en la consola
+        if errors:
+            self._log(f"✗  Se encontraron {len(errors)} error(es) léxico(s):\n")
+            for err in errors:
+                self._log(f"   {err['msg']}")
+            self._log("")
+
+        # Llenar tabla con los tokens válidos que sí se reconocieron
         for i, tok in enumerate(tokens, 1):
             col = self._calcular_columna(source, tok)
             self.tabla_tokens.insert(
@@ -321,7 +328,10 @@ class BeatScriptIDE(ctk.CTk):
                 values=(i, tok.type, repr(tok.value), tok.lineno, col),
             )
 
-        self._log(f"✔  Análisis léxico completado — {len(tokens)} tokens encontrados.")
+        if errors:
+            self._log(f"⚠  Análisis léxico completado con errores — {len(tokens)} tokens reconocidos, {len(errors)} error(es).")
+        else:
+            self._log(f"✔  Análisis léxico completado — {len(tokens)} tokens encontrados.")
 
         # Generar y reproducir MIDI
         try:
