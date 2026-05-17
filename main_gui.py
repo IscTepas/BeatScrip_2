@@ -287,7 +287,6 @@ class BeatScriptIDE(ctk.CTk):
 
     # ── Lógica del botón Compilar ─────────────────────────────────────────────
     def _compilar(self):
-        # Limpiar tabla y consola
         for row in self.tabla_tokens.get_children():
             self.tabla_tokens.delete(row)
         self._log("", clear=True)
@@ -300,27 +299,31 @@ class BeatScriptIDE(ctk.CTk):
         self._log("▶  Iniciando análisis léxico...")
 
         try:
-            # ── Integración real con beatscript/lexer.py ──────────────────────
             from beatscript.lexer import tokenize
             tokens, errors = tokenize(source, collect_errors=True)
-
         except ImportError:
-            # ── Mock temporal si el módulo no se encuentra ────────────────────
             self._log("⚠  [Mock] beatscript.lexer no encontrado — usando datos de prueba")
             tokens, errors = self._mock_tokens(), []
-
         except Exception as e:
             self._log(f"✗  Error durante el análisis léxico: {e}")
             return
 
-        # Reportar errores léxicos en la consola
+        # Error léxico → mostrar y detener
         if errors:
-            self._log(f"✗  Se encontraron {len(errors)} error(es) léxico(s):\n")
             for err in errors:
-                self._log(f"   {err['msg']}")
-            self._log("")
+                self._log(f"✗  {err['msg']}")
+            self._log(f"\n✗  Compilación detenida — {len(errors)} error(es) léxico(s) encontrado(s).")
+            return
 
-        # Llenar tabla con los tokens válidos que sí se reconocieron
+        # Validación post-léxica → detener si hay problemas
+        avisos = self._validar_tokens_extra(tokens, source)
+        if avisos:
+            for av in avisos:
+                self._log(f"✗  {av}")
+            self._log(f"\n✗  Compilación detenida — {len(avisos)} error(es) de validación encontrado(s).")
+            return
+
+        # Sin errores → llenar tabla y continuar
         for i, tok in enumerate(tokens, 1):
             col = self._calcular_columna(source, tok)
             self.tabla_tokens.insert(
@@ -328,10 +331,7 @@ class BeatScriptIDE(ctk.CTk):
                 values=(i, tok.type, repr(tok.value), tok.lineno, col),
             )
 
-        if errors:
-            self._log(f"⚠  Análisis léxico completado con errores — {len(tokens)} tokens reconocidos, {len(errors)} error(es).")
-        else:
-            self._log(f"✔  Análisis léxico completado — {len(tokens)} tokens encontrados.")
+        self._log(f"✔  Análisis léxico completado — {len(tokens)} tokens encontrados.")
 
         # Generar y reproducir MIDI
         try:
@@ -343,6 +343,61 @@ class BeatScriptIDE(ctk.CTk):
             self._log("♪  Reproduciendo output.mid ...")
         except Exception as e:
             self._log(f"⚠  No se pudo reproducir el MIDI: {e}")
+
+    def _validar_tokens_extra(self, tokens: list, source: str) -> list:
+        """Detecta patrones sospechosos que el lexer acepta pero son inválidos semánticamente."""
+        import re
+        avisos = []
+        instrumentos_validos = {
+            "piano", "guitar", "violin", "flute", "drums", "bass",
+            "trumpet", "cello", "saxophone", "organ", "harp",
+            "harpsichord", "marimba", "vibraphone", "clarinet", "oboe", "tuba",
+        }
+        i = 0
+        while i < len(tokens):
+            tok = tokens[i]
+
+            if tok.type == "INSTRUMENT_KW":
+                siguiente = tokens[i + 1] if i + 1 < len(tokens) else None
+                if siguiente and siguiente.type == "IDENTIFIER":
+                    col = self._calcular_columna(source, siguiente)
+                    avisos.append(
+                        f"[AVISO] Línea {siguiente.lineno}, Col {col}: "
+                        f"'{siguiente.value}' no es un instrumento reconocido. "
+                        f"Usa: piano, guitar, violin, flute, drums, bass, trumpet..."
+                    )
+
+            elif tok.type == "TEMPO_KW":
+                siguiente = tokens[i + 1] if i + 1 < len(tokens) else None
+                if siguiente and siguiente.type != "NUMBER":
+                    col = self._calcular_columna(source, siguiente)
+                    avisos.append(
+                        f"[AVISO] Línea {siguiente.lineno}, Col {col}: "
+                        f"se esperaba un número después de 'tempo', se encontró '{siguiente.value}'"
+                    )
+
+            elif tok.type == "NOTE" or tok.type == "REST":
+                siguiente = tokens[i + 1] if i + 1 < len(tokens) else None
+                if siguiente and siguiente.type == "IDENTIFIER":
+                    col = self._calcular_columna(source, siguiente)
+                    avisos.append(
+                        f"[AVISO] Línea {siguiente.lineno}, Col {col}: "
+                        f"'{siguiente.value}' no es una duración válida — usa: "
+                        f"negra, blanca, corchea, redonda, semicorchea, fusa, semifusa"
+                    )
+
+            elif tok.type == "IDENTIFIER":
+                val = tok.value
+                # Parece nota pero mal formada: empieza con A-G y termina con dígito
+                if re.match(r"^[A-Ga-g].+\d$", val):
+                    col = self._calcular_columna(source, tok)
+                    avisos.append(
+                        f"[AVISO] Línea {tok.lineno}, Col {col}: "
+                        f"'{val}' parece una nota inválida — formato: [A-G][#b]?[octava], ej: C4, D#3, Eb5"
+                    )
+
+            i += 1
+        return avisos
 
     def _detener(self):
         pygame.mixer.music.stop()
