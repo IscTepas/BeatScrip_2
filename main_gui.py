@@ -199,10 +199,10 @@ class BeatScriptIDE(ctk.CTk):
 
         source = self.editor.get("1.0", "end-1c").strip()
         if not source:
-            self._log("⚠  El editor está vacío. Escribe código BeatScript primero.")
+            self._log("El editor está vacío. Escribe código BeatScript primero.")
             return
 
-        self._log("▶  Iniciando análisis léxico...")
+        self._log("Iniciando análisis léxico...")
 
         try:
             from beatscript.lexer import tokenize
