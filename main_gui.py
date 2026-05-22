@@ -217,11 +217,11 @@ class BeatScriptIDE(ctk.CTk):
         # Error léxico → mostrar y detener
         if errors:
             for err in errors:
-                self._log(f"✗  {err['msg']}")
+                self._log(f"  {err['msg']}")
             self._log(f"\nCompilación detenida — {len(errors)} error(es) léxico(s) encontrado(s).")
             return
 
-        # Validación post-léxica → detener si hay problemas
+        # Validación post-léxica - detener si hay problemas
         avisos = self._validar_tokens_extra(tokens, source)
         if avisos:
             for av in avisos:
@@ -318,7 +318,7 @@ class BeatScriptIDE(ctk.CTk):
 
     def _detener(self):
         pygame.mixer.music.stop()
-        self._log("⏹  Reproducción detenida.")
+        self._log("Reproducción detenida.")
 
     def _calcular_columna(self, source: str, token) -> int:
         line_start = source.rfind("\n", 0, token.lexpos) + 1
