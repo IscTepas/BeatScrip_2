@@ -13,45 +13,6 @@ ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("green")
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Ventana secundaria: Detalles Extra
-# ─────────────────────────────────────────────────────────────────────────────
-class DetallesExtraWindow(ctk.CTkToplevel):
-    def __init__(self, parent):
-        super().__init__(parent)
-        self.title("Detalles Extra")
-        self.geometry("520x360")
-        self.resizable(False, False)
-        self.grab_set()  # bloquea la ventana principal mientras está abierta
-        self.lift()
-        self.focus_force()
-
-        ctk.CTkLabel(
-            self,
-            text="Detalles Extra",
-            font=ctk.CTkFont(size=20, weight="bold"),
-        ).pack(pady=(35, 10))
-
-        ctk.CTkLabel(
-            self,
-            text=(
-                "Aquí se mostrarán detalles adicionales del análisis:\n\n"
-                "• Tabla de símbolos\n"
-                "• Estadísticas de tokens\n"
-                "• Errores semánticos\n"
-                "• Información de la Etapa 3 en adelante"
-            ),
-            font=ctk.CTkFont(size=13),
-            justify="left",
-        ).pack(padx=40, pady=10, anchor="w")
-
-        ctk.CTkButton(
-            self,
-            text="Cerrar",
-            width=120,
-            command=self.destroy,
-        ).pack(pady=20)
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Ventana principal
@@ -104,16 +65,6 @@ class BeatScriptIDE(ctk.CTk):
             width=120,
             command=self._detener,
         ).pack(side="left", padx=(0, 10), pady=10)
-
-        ctk.CTkButton(
-            toolbar,
-            text="Ver Detalles Extra",
-            fg_color="#37474f",
-            hover_color="#455a64",
-            font=ctk.CTkFont(size=13),
-            width=160,
-            command=self._abrir_detalles,
-        ).pack(side="left", pady=10)
 
     # ── Área principal: editor + paneles derechos ─────────────────────────────
     def _build_main_area(self):
@@ -257,28 +208,28 @@ class BeatScriptIDE(ctk.CTk):
             from beatscript.lexer import tokenize
             tokens, errors = tokenize(source, collect_errors=True)
         except ImportError:
-            self._log("⚠  [Mock] beatscript.lexer no encontrado — usando datos de prueba")
+            self._log("beatscript.lexer no encontrado — usando datos de prueba")
             tokens, errors = self._mock_tokens(), []
         except Exception as e:
-            self._log(f"✗  Error durante el análisis léxico: {e}")
+            self._log(f"Error durante el análisis léxico: {e}")
             return
 
         # Error léxico → mostrar y detener
         if errors:
             for err in errors:
                 self._log(f"✗  {err['msg']}")
-            self._log(f"\n✗  Compilación detenida — {len(errors)} error(es) léxico(s) encontrado(s).")
+            self._log(f"\nCompilación detenida — {len(errors)} error(es) léxico(s) encontrado(s).")
             return
 
         # Validación post-léxica → detener si hay problemas
         avisos = self._validar_tokens_extra(tokens, source)
         if avisos:
             for av in avisos:
-                self._log(f"✗  {av}")
-            self._log(f"\n✗  Compilación detenida — {len(avisos)} error(es) de validación encontrado(s).")
+                self._log(f"  {av}")
+            self._log(f"\n  Compilación detenida — {len(avisos)} error(es) de validación encontrado(s).")
             return
 
-        self._log(f"✔  Análisis léxico completado — {len(tokens)} tokens encontrados.")
+        self._log(f"  Análisis léxico completado — {len(tokens)} tokens encontrados.")
 
         # Generar y reproducir MIDI
         try:
@@ -287,9 +238,9 @@ class BeatScriptIDE(ctk.CTk):
             tokens_to_midi(tokens, midi_path)
             pygame.mixer.music.load(midi_path)
             pygame.mixer.music.play()
-            self._log("♪  Reproduciendo output.mid ...")
+            self._log(" Reproduciendo output.mid ...")
         except Exception as e:
-            self._log(f"⚠  No se pudo reproducir el MIDI: {e}")
+            self._log(f"  No se pudo reproducir el MIDI: {e}")
 
     def _validar_tokens_extra(self, tokens: list, source: str) -> list:
         """Detecta patrones sospechosos que el lexer acepta pero son inválidos semánticamente."""
@@ -407,10 +358,6 @@ class BeatScriptIDE(ctk.CTk):
         self.consola.see("end")
         self.consola.configure(state="disabled")
 
-    # ── Abrir ventana secundaria ──────────────────────────────────────────────
-    def _abrir_detalles(self):
-        DetallesExtraWindow(self)
-
     # ── Código de ejemplo al iniciar ──────────────────────────────────────────
     def _cargar_ejemplo(self):
         ejemplo = """\
@@ -435,50 +382,6 @@ track melodia {
     E4 negra
     E4 blanca
     D4 blanca
-}
-
-volume 70
-instrument cello
-
-track acompanamiento {
-    C3 blanca
-    G3 blanca
-    C3 blanca
-    G3 blanca
-    F3 blanca
-    C3 blanca
-    G3 blanca
-    G3 blanca
-}
-
-tempo 120
-volume 90
-instrument frenchhorn
-
-repeat 2 {
-    C4 negra
-    E4 negra
-    G4 negra
-    rest negra
-}
-
-volume 100
-instrument piano
-
-chord {
-    C4 E4 G4 blanca
-}
-
-chord {
-    F4 A4 C5 blanca
-}
-
-chord {
-    G4 B4 D5 blanca
-}
-
-chord {
-    C4 E4 G4 C5 redonda
 }
 """
         self.editor.delete("1.0", "end")
