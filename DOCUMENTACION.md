@@ -1,7 +1,5 @@
 # BeatScript — Documentación Técnica del Compilador
 
-**Materia:** Lenguajes y Autómatas I
-**Semestre:** 6to semestre
 **Proyecto:** Compilador de lenguaje de composición musical → MIDI
 
 ---
@@ -15,7 +13,6 @@
    - 3.2 Tokens reconocidos
    - 3.3 Palabras reservadas (RESERVED)
    - 3.4 Teoría formal: Alfabeto y Lenguajes Regulares
-   - 3.5 Autómatas Finitos: AFN y AFD
    - 3.6 AFDs de los tokens de BeatScript
    - 3.7 Construcción de Thompson: regex → AFN
    - 3.8 Construcción de subconjuntos: AFN → AFD
@@ -299,62 +296,6 @@ Los lenguajes regulares son **cerrados** bajo:
 - Intersección: L₁ ∩ L₂ sigue siendo regular
 
 Esto es importante porque **el lenguaje de todos los tokens de BeatScript** se obtiene uniendo los lenguajes individuales de cada token, y esa unión sigue siendo regular. PLY puede construir un solo autómata que reconoce todos los tokens simultáneamente.
-
----
-
-### 3.5 Autómatas Finitos: AFN y AFD
-
-Un **autómata finito** es un modelo matemático de una máquina que lee una cadena de entrada carácter por carácter y decide si la acepta o rechaza.
-
-#### Autómata Finito Determinista (AFD)
-
-Formalmente, un AFD es una tupla M = (Q, Σ, δ, q₀, F) donde:
-
-- **Q** = conjunto finito de estados
-- **Σ** = alfabeto de entrada
-- **δ: Q × Σ → Q** = función de transición (determinista: para cada par estado-símbolo, hay exactamente un estado destino)
-- **q₀ ∈ Q** = estado inicial
-- **F ⊆ Q** = conjunto de estados de aceptación
-
-La máquina funciona así:
-
-1. Comienza en q₀.
-2. Lee el primer carácter c de la entrada.
-3. Aplica δ(estado_actual, c) para obtener el siguiente estado.
-4. Repite hasta agotar la entrada.
-5. Si el estado final ∈ F, **acepta**. Si no, **rechaza**.
-
-#### Autómata Finito No Determinista (AFN)
-
-Un AFN es una tupla M = (Q, Σ, δ, q₀, F) donde la función de transición es:
-
-`δ: Q × (Σ ∪ {ε}) → P(Q)`
-
-La diferencia clave:
-
-- El resultado es un **subconjunto de Q**, no un único estado (puede haber 0, 1 o muchos estados destino).
-- Puede haber **transiciones ε** (se cambia de estado sin consumir ningún carácter).
-
-En un AFN, la máquina "prueba todos los caminos posibles simultáneamente" — si existe algún camino que lleve a un estado de aceptación, la cadena es aceptada.
-
-#### Equivalencia AFN ≡ AFD ≡ Expresión Regular
-
-Este es el teorema fundamental de los lenguajes regulares (**Teorema de Kleene**):
-
-```
-ER  ←→  AFN  ←→  AFD
-```
-
-Cualquiera de los tres formalismos puede describir exactamente el mismo conjunto de lenguajes: los lenguajes regulares. Las conversiones entre ellos son algoritmos bien definidos:
-
-| Conversión | Algoritmo |
-| --- | --- |
-| ER → AFN | Construcción de Thompson |
-| AFN → AFD | Construcción de subconjuntos |
-| AFD → AFD mínimo | Algoritmo de particiones de Hopcroft |
-| AFD → ER | Ecuaciones de Arden o eliminación de estados |
-
-PLY aplica exactamente estas conversiones internamente, como se detalla en la sección 3.9.
 
 ---
 
