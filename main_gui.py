@@ -7,6 +7,7 @@ from tkinter import ttk
 import customtkinter as ctk
 import pygame
 import os
+from beatscript.parser import BeatScriptParser, ast_to_tree_string
 
 # Apariencia global
 ctk.set_appearance_mode("dark")
@@ -31,7 +32,6 @@ class BeatScriptIDE(ctk.CTk):
         self._build_toolbar()
         self._build_main_area()
         self._build_console()
-        self._configure_treeview_style()
         self._cargar_ejemplo()
 
     # ── Barra superior ────────────────────────────────────────────────────────
@@ -116,35 +116,25 @@ class BeatScriptIDE(ctk.CTk):
         frame.rowconfigure(1, weight=1)
         frame.columnconfigure(0, weight=1)
 
-        ctk.CTkLabel(
+        self.ast_label = ctk.CTkLabel(
             frame,
-            text="Árbol Sintáctico — Parser  (Etapa 2 — pendiente)",
+            text="Árbol Sintáctico — Parser (Etapa 2)",
             font=ctk.CTkFont(size=12, weight="bold"),
             text_color="#ffcc80",
-        ).grid(row=0, column=0, sticky="w", padx=12, pady=(8, 4))
-
-        tree_frame = tk.Frame(frame, bg="#2b2b2b")
-        tree_frame.grid(row=1, column=0, sticky="nsew", padx=8, pady=(0, 8))
-        tree_frame.rowconfigure(0, weight=1)
-        tree_frame.columnconfigure(0, weight=1)
-
-        self.tabla_ast = ttk.Treeview(
-            tree_frame,
-            columns=("Nodo", "Tipo", "Valor"),
-            show="headings",
-            style="Dark.Treeview",
         )
-        for col, ancho in zip(("Nodo", "Tipo", "Valor"), (200, 150, 150)):
-            self.tabla_ast.heading(col, text=col)
-            self.tabla_ast.column(col, width=ancho, anchor="w", stretch=True)
+        self.ast_label.grid(row=0, column=0, sticky="w", padx=12, pady=(8, 4))
 
-        vsb2 = ttk.Scrollbar(tree_frame, orient="vertical", command=self.tabla_ast.yview)
-        self.tabla_ast.configure(yscrollcommand=vsb2.set)
-
-        self.tabla_ast.grid(row=0, column=0, sticky="nsew")
-        vsb2.grid(row=0, column=1, sticky="ns")
-
-        self.tabla_ast.insert("", "end", values=("— El AST se generará aquí (Etapa 2) —", "", ""))
+        self.ast_textbox = ctk.CTkTextbox(
+            frame,
+            font=("Consolas", 11),
+            wrap="none",
+            activate_scrollbars=True,
+            text_color="#a1d995",
+            fg_color="#1a1a1a",
+        )
+        self.ast_textbox.grid(row=1, column=0, sticky="nsew", padx=8, pady=(0, 8))
+        self.ast_textbox.insert("1.0", "— El AST se generará aquí (Etapa 2) —")
+        self.ast_textbox.configure(state="disabled")
 
     # ── Consola inferior ──────────────────────────────────────────────────────
     def _build_console(self):
@@ -168,30 +158,19 @@ class BeatScriptIDE(ctk.CTk):
         )
         self.consola.pack(fill="both", expand=True, padx=8, pady=(0, 8))
 
-    # ── Estilo oscuro para Treeview ───────────────────────────────────────────
-    def _configure_treeview_style(self):
-        style = ttk.Style()
-        style.theme_use("clam")
-        style.configure(
-            "Dark.Treeview",
-            background="#1e1e1e",
-            foreground="#e0e0e0",
-            fieldbackground="#1e1e1e",
-            rowheight=26,
-            font=("Consolas", 11),
-        )
-        style.configure(
-            "Dark.Treeview.Heading",
-            background="#2d2d2d",
-            foreground="#90caf9",
-            font=("Segoe UI", 11, "bold"),
-            relief="flat",
-        )
-        style.map(
-            "Dark.Treeview",
-            background=[("selected", "#1565c0")],
-            foreground=[("selected", "#ffffff")],
-        )
+    # ── Mostrar árbol sintáctico visual ────────────────────────────────────────
+    def _mostrar_ast(self, ast):
+        """Muestra el árbol sintáctico (AST) en formato visual"""
+        self.ast_textbox.configure(state="normal")
+        self.ast_textbox.delete("1.0", "end")
+        
+        tree_str = ast_to_tree_string(ast)
+        self.ast_textbox.insert("1.0", tree_str)
+        self.ast_textbox.configure(state="disabled")
+        
+        # Contar nodos en el árbol (aproximado)
+        num_nodes = tree_str.count("\n") + 1
+        self.ast_label.configure(text=f"Árbol Sintáctico — Parser (Etapa 2 — {num_nodes} nodos)")
 
     # ── Lógica del botón Compilar ─────────────────────────────────────────────
     def _compilar(self):
@@ -230,6 +209,30 @@ class BeatScriptIDE(ctk.CTk):
             return
 
         self._log(f"  Análisis léxico completado — {len(tokens)} tokens encontrados.")
+
+        # ───────────────────────────────────────────────────────────────────────
+        # ETAPA 2: ANÁLISIS SINTÁCTICO → Árbol sintáctico (AST)
+        # ───────────────────────────────────────────────────────────────────────
+        self._log("Iniciando análisis sintáctico...")
+        
+        try:
+            parser = BeatScriptParser(tokens)
+            ast = parser.parse()
+            
+            if parser.errors:
+                for err in parser.errors:
+                    self._log(f"  {err}")
+                self._log(f"\nCompilación detenida — {len(parser.errors)} error(es) sintáctico(s) encontrado(s).")
+                return
+            
+            self._log("  Análisis sintáctico completado.")
+            
+            # Mostrar el AST en la tabla
+            self._mostrar_ast(ast)
+            
+        except Exception as e:
+            self._log(f"Error durante el análisis sintáctico: {e}")
+            return
 
         # Generar y reproducir MIDI
         try:
