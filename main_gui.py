@@ -7,7 +7,7 @@ from tkinter import ttk
 import customtkinter as ctk
 import pygame
 import os
-from beatscript.parser import BeatScriptParser, ast_to_tree_string
+from beatscript.parser import BeatScriptParser, ast_to_tree_string, generate_visual_tree
 
 # Apariencia global
 ctk.set_appearance_mode("dark")
@@ -27,6 +27,9 @@ class BeatScriptIDE(ctk.CTk):
 
         pygame.mixer.pre_init(44100, -16, 2, 512)
         pygame.mixer.init()
+
+        # AST del último compilado exitoso; None hasta que se compile correctamente
+        self.current_ast = None
 
         self._build_toolbar()
         self._build_main_area()
@@ -223,13 +226,30 @@ class BeatScriptIDE(ctk.CTk):
         frame.rowconfigure(1, weight=1)
         frame.columnconfigure(0, weight=1)
 
+        # ── Fila de encabezado: etiqueta + botón de árbol gráfico ────────────
+        header = ctk.CTkFrame(frame, fg_color="transparent")
+        header.grid(row=0, column=0, sticky="ew", padx=8, pady=(8, 4))
+        header.columnconfigure(0, weight=1)  # La etiqueta se expande
+
         self.ast_label = ctk.CTkLabel(
-            frame,
+            header,
             text="Árbol Sintáctico — Parser (Etapa 2)",
             font=ctk.CTkFont(size=12, weight="bold"),
             text_color="#ffcc80",
         )
-        self.ast_label.grid(row=0, column=0, sticky="w", padx=12, pady=(8, 4))
+        self.ast_label.grid(row=0, column=0, sticky="w")
+
+        # Botón que abre el árbol de derivación visual (PNG via Graphviz)
+        ctk.CTkButton(
+            header,
+            text="🌳 Ver Árbol de Derivación",
+            fg_color="#4527a0",
+            hover_color="#512da8",
+            font=ctk.CTkFont(size=11, weight="bold"),
+            width=210,
+            height=28,
+            command=self._abrir_arbol_visual,
+        ).grid(row=0, column=1, sticky="e", padx=(8, 0))
 
         self.ast_textbox = ctk.CTkTextbox(
             frame,
@@ -303,6 +323,41 @@ class BeatScriptIDE(ctk.CTk):
             text=f"Árbol Sintáctico — Parser (Etapa 2 — {num_nodes} nodos)"
         )
 
+    # ── Abrir árbol de derivación visual (Graphviz → PNG) ────────────────────
+    def _abrir_arbol_visual(self):
+        """
+        Genera el árbol de derivación en PNG usando Graphviz y lo abre
+        automáticamente con el visor de imágenes predeterminado de Windows.
+
+        Requiere:
+          1. pip install graphviz
+          2. Instalar el binario Graphviz desde https://graphviz.org/download/
+             y añadirlo al PATH del sistema.
+        """
+        if self.current_ast is None:
+            self._log(
+                "  Primero compila el código correctamente para "
+                "generar el árbol de derivación."
+            )
+            return
+
+        self._log("Generando árbol de derivación visual...")
+        try:
+            ruta = generate_visual_tree(self.current_ast, output_filename="parse_tree")
+            self._log(f"  Árbol generado: {ruta}")
+            # os.startfile abre la imagen con el visor predeterminado del sistema
+            os.startfile(ruta)
+        except ImportError:
+            self._log("  Error: el paquete Python 'graphviz' no está instalado.")
+            self._log("  Solución: pip install graphviz")
+        except Exception as e:
+            self._log(f"  Error al generar el árbol: {e}")
+            if any(k in str(e).lower() for k in ("not found", "dot", "executable")):
+                self._log(
+                    "  Graphviz no está en el PATH. Instálalo desde "
+                    "https://graphviz.org/download/ y marca 'Add to PATH'."
+                )
+
     # ── Lógica del botón Compilar ─────────────────────────────────────────────
     def _compilar(self):
         self._log("", clear=True)
@@ -367,6 +422,7 @@ class BeatScriptIDE(ctk.CTk):
                 return
 
             self._log("  Análisis sintáctico completado.")
+            self.current_ast = ast   # Guardar para el botón de árbol gráfico
             self._mostrar_ast(ast)
 
         except Exception as e:

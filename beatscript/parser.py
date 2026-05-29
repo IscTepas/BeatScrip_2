@@ -20,6 +20,7 @@ Gramática (Notación EBNF):
   numero      ::= NUMBER
 """
 
+import os as _os
 import difflib
 from beatscript.lexer import RESERVED
 
@@ -659,3 +660,232 @@ def ast_to_tree_string(node, indent="", is_last=True):
             lines.append(indent + connector + tree_str)
 
     return "\n".join(lines) if lines else str(node)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 5. ÁRBOL DE DERIVACIÓN VISUAL CON GRAPHVIZ
+# ═══════════════════════════════════════════════════════════════════════════
+
+def generate_visual_tree(ast_root, output_filename="parse_tree"):
+    """
+    Genera un Árbol de Derivación visual usando Graphviz y lo guarda como PNG.
+
+    El árbol muestra explícitamente:
+      - Nodos internos (rectángulos): reglas gramaticales aplicadas.
+      - Nodos hoja (elipses): tokens terminales con su tipo y valor.
+
+    Esto lo convierte en un árbol de derivación real, más informativo que
+    un AST puro, ideal para presentaciones académicas.
+
+    Args:
+        ast_root:        Nodo raíz del AST (objeto Program).
+        output_filename: Nombre base del archivo de salida (sin extensión).
+
+    Returns:
+        Ruta absoluta del archivo PNG generado.
+
+    Raises:
+        ImportError: Si el paquete Python 'graphviz' no está instalado.
+        graphviz.backend.ExecutableNotFound: Si el binario 'dot' de Graphviz
+            no está en el PATH del sistema.
+    """
+    import graphviz  # pip install graphviz  (requiere también el binario de Graphviz)
+
+    # En Windows, Python no siempre hereda el PATH actualizado del sistema.
+    # Inyectamos las rutas de instalación más comunes de Graphviz directamente.
+    if _os.name == "nt":
+        for _candidato in [
+            r"C:\Program Files\Graphviz\bin",
+            r"C:\Program Files (x86)\Graphviz\bin",
+        ]:
+            if _os.path.isfile(_os.path.join(_candidato, "dot.exe")):
+                _os.environ["PATH"] = _candidato + _os.pathsep + _os.environ.get("PATH", "")
+                break
+
+    # ── Configuración del grafo ───────────────────────────────────────────────
+    dot = graphviz.Digraph(
+        name="BeatScript_ParseTree",
+        comment="BeatScript — Árbol de Derivación",
+        graph_attr={
+            "rankdir": "TB",           # De arriba hacia abajo
+            "bgcolor": "#1e1e2e",      # Fondo oscuro (acorde con el IDE)
+            "fontname": "Helvetica",
+            "nodesep": "0.45",         # Separación horizontal entre nodos hermanos
+            "ranksep": "0.65",         # Separación vertical entre niveles
+            "splines": "ortho",        # Aristas en ángulo recto (más limpio)
+            "label": "BeatScript — Árbol de Derivación",
+            "labelloc": "t",           # Título arriba del grafo
+            "fontcolor": "#90caf9",
+            "fontsize": "14",
+        },
+        node_attr={
+            "fontname": "Helvetica",
+            "fontsize": "10",
+            "style": "filled,rounded",
+            "penwidth": "0",           # Sin borde visible (el color lo delimita)
+        },
+        edge_attr={
+            "color": "#546e7a",
+            "arrowsize": "0.65",
+            "penwidth": "1.3",
+        },
+    )
+
+    # Contador global para IDs únicos de nodos
+    _uid = [0]
+
+    def uid():
+        _uid[0] += 1
+        return f"n{_uid[0]}"
+
+    # ── Helpers: tipos de nodos ───────────────────────────────────────────────
+
+    def nodo_regla(etiqueta, color="#283593"):
+        """Nodo interno — representa una regla gramatical (rectángulo)."""
+        nid = uid()
+        dot.node(nid, label=etiqueta, shape="box",
+                 fillcolor=color, fontcolor="white")
+        return nid
+
+    def nodo_terminal(tipo_token, valor_token, color="#37474f"):
+        """Nodo hoja — representa un token terminal (elipse)."""
+        nid = uid()
+        dot.node(nid,
+                 label=f"{tipo_token}\n'{valor_token}'",
+                 shape="ellipse",
+                 fillcolor=color,
+                 fontcolor="#cfd8dc")
+        return nid
+
+    def nodo_lista(etiqueta):
+        """Nodo contenedor de listas (eventos, sentencias) — rombo."""
+        nid = uid()
+        dot.node(nid, label=etiqueta, shape="diamond",
+                 fillcolor="#004d40", fontcolor="white")
+        return nid
+
+    def arco(padre, hijo):
+        dot.edge(padre, hijo)
+
+    # ── Visitores recursivos ──────────────────────────────────────────────────
+
+    def visitar(node):
+        """Despacha al visitante correcto según el tipo de nodo."""
+        if isinstance(node, Program):    return _v_programa(node)
+        if isinstance(node, Tempo):      return _v_tempo(node)
+        if isinstance(node, Volume):     return _v_volume(node)
+        if isinstance(node, Instrument): return _v_instrument(node)
+        if isinstance(node, Track):      return _v_track(node)
+        if isinstance(node, Note):       return _v_note(node)
+        if isinstance(node, Rest):       return _v_rest(node)
+        if isinstance(node, Chord):      return _v_chord(node)
+        if isinstance(node, Repeat):     return _v_repeat(node)
+        return None
+
+    def _v_programa(node):
+        # Nodo raíz con forma especial (doble octágono)
+        nid = uid()
+        dot.node(nid, label="programa",
+                 shape="doubleoctagon",
+                 fillcolor="#0d47a1",
+                 fontcolor="white",
+                 fontsize="12",
+                 style="filled")
+        for stmt in node.statements:
+            hijo = visitar(stmt)
+            if hijo:
+                arco(nid, hijo)
+        return nid
+
+    def _v_tempo(node):
+        # sentencia → TEMPO_KW  NUMBER
+        nid = nodo_regla("sentencia\ntempo", "#4527a0")
+        arco(nid, nodo_terminal("TEMPO_KW",  "tempo",      "#6a1b9a"))
+        arco(nid, nodo_terminal("NUMBER",    str(node.bpm), "#37474f"))
+        return nid
+
+    def _v_volume(node):
+        # sentencia → VOLUME_KW  NUMBER
+        nid = nodo_regla("sentencia\nvolume", "#4527a0")
+        arco(nid, nodo_terminal("VOLUME_KW", "volume",       "#6a1b9a"))
+        arco(nid, nodo_terminal("NUMBER",    str(node.level), "#37474f"))
+        return nid
+
+    def _v_instrument(node):
+        # sentencia → INSTRUMENT_KW  INSTR_NAME
+        nid = nodo_regla("sentencia\ninstrument", "#4527a0")
+        arco(nid, nodo_terminal("INSTRUMENT_KW", "instrument", "#6a1b9a"))
+        arco(nid, nodo_terminal("INSTR_NAME",    node.name,    "#1565c0"))
+        return nid
+
+    def _v_track(node):
+        # sentencia → TRACK_KW  IDENTIFIER  LBRACE  eventos  RBRACE
+        nid = nodo_regla(f"sentencia\ntrack", "#1a237e")
+        arco(nid, nodo_terminal("TRACK_KW",   "track",    "#283593"))
+        arco(nid, nodo_terminal("IDENTIFIER", node.name,  "#1565c0"))
+        arco(nid, nodo_terminal("LBRACE",     "{",        "#455a64"))
+
+        # Nodo contenedor de eventos
+        ev_nid = nodo_lista(f"eventos\n({len(node.events)})")
+        arco(nid, ev_nid)
+        for event in node.events:
+            hijo = visitar(event)
+            if hijo:
+                arco(ev_nid, hijo)
+
+        arco(nid, nodo_terminal("RBRACE", "}", "#455a64"))
+        return nid
+
+    def _v_note(node):
+        # evento → NOTE  DURATION
+        nid = nodo_regla("evento\nnota", "#1b5e20")
+        arco(nid, nodo_terminal("NOTE",     node.pitch,    "#2e7d32"))
+        arco(nid, nodo_terminal("DURATION", node.duration, "#388e3c"))
+        return nid
+
+    def _v_rest(node):
+        # evento → REST  DURATION
+        nid = nodo_regla("evento\nrest", "#33691e")
+        arco(nid, nodo_terminal("REST",     "rest",        "#558b2f"))
+        arco(nid, nodo_terminal("DURATION", node.duration, "#388e3c"))
+        return nid
+
+    def _v_chord(node):
+        # evento → CHORD_KW  LBRACE  NOTE+  DURATION  RBRACE
+        nid = nodo_regla("evento\nchord", "#004d40")
+        arco(nid, nodo_terminal("CHORD_KW", "chord", "#00695c"))
+        arco(nid, nodo_terminal("LBRACE",   "{",     "#455a64"))
+        for pitch in node.notes:
+            arco(nid, nodo_terminal("NOTE", pitch, "#2e7d32"))
+        arco(nid, nodo_terminal("DURATION", node.duration, "#388e3c"))
+        arco(nid, nodo_terminal("RBRACE",   "}",           "#455a64"))
+        return nid
+
+    def _v_repeat(node):
+        # sentencia/evento → REPEAT_KW  NUMBER  LBRACE  cuerpo  RBRACE
+        nid = nodo_regla("repeat", "#bf360c")
+        arco(nid, nodo_terminal("REPEAT_KW", "repeat",        "#d84315"))
+        arco(nid, nodo_terminal("NUMBER",    str(node.count), "#37474f"))
+        arco(nid, nodo_terminal("LBRACE",    "{",             "#455a64"))
+
+        # Nodo contenedor del cuerpo del repeat
+        body_nid = nodo_lista(f"cuerpo\n({len(node.events)})")
+        arco(nid, body_nid)
+        for event in node.events:
+            hijo = visitar(event)
+            if hijo:
+                arco(body_nid, hijo)
+
+        arco(nid, nodo_terminal("RBRACE", "}", "#455a64"))
+        return nid
+
+    # ── Construir el grafo completo ───────────────────────────────────────────
+    visitar(ast_root)
+
+    # Guardar PNG en la raíz del proyecto (carpeta que contiene al paquete beatscript)
+    proyecto_dir = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+    ruta_base = _os.path.join(proyecto_dir, output_filename)
+
+    # dot.render() crea "<ruta_base>.png" y elimina el .gv intermedio (cleanup=True)
+    ruta_png = dot.render(filename=ruta_base, format="png", cleanup=True)
+    return _os.path.abspath(ruta_png)
