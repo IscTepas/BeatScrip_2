@@ -3,7 +3,7 @@
 # Framework: customtkinter (modo oscuro) + tkinter.ttk (tablas)
 
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, filedialog
 import customtkinter as ctk
 import pygame
 import os
@@ -66,6 +66,26 @@ class BeatScriptIDE(ctk.CTk):
             font=ctk.CTkFont(size=13),
             width=120,
             command=self._detener,
+        ).pack(side="left", padx=(0, 10), pady=10)
+
+        ctk.CTkButton(
+            toolbar,
+            text="📂  Abrir Archivo",
+            fg_color="#1565c0",
+            hover_color="#1976d2",
+            font=ctk.CTkFont(size=13),
+            width=150,
+            command=self._abrir_archivo,
+        ).pack(side="left", padx=(0, 10), pady=10)
+
+        ctk.CTkButton(
+            toolbar,
+            text="💾  Guardar Archivo",
+            fg_color="#4a148c",
+            hover_color="#6a1b9a",
+            font=ctk.CTkFont(size=13),
+            width=160,
+            command=self._guardar_archivo,
         ).pack(side="left", padx=(0, 10), pady=10)
 
     # ── Área principal: editor + paneles derechos ─────────────────────────────
@@ -607,6 +627,56 @@ class BeatScriptIDE(ctk.CTk):
 
             i += 1
         return avisos
+
+    # ── Abrir archivo .bs / .txt ──────────────────────────────────────────────
+    def _abrir_archivo(self):
+        """Abre un diálogo para seleccionar un archivo y carga su contenido en el editor."""
+        ruta = filedialog.askopenfilename(
+            title="Abrir archivo BeatScript",
+            filetypes=[
+                ("Archivos BeatScript", "*.bs"),
+                ("Archivos de texto",   "*.txt"),
+                ("Todos los archivos",  "*.*"),
+            ],
+        )
+        if not ruta:
+            return  # El usuario canceló
+
+        try:
+            with open(ruta, "r", encoding="utf-8") as f:
+                contenido = f.read()
+            self.editor.delete("1.0", "end")
+            self.editor.insert("1.0", contenido)
+            self._actualizar_estado()
+            self._aplicar_resaltado()
+            self.title(f"BeatScript IDE — {os.path.basename(ruta)}")
+            self._log(f"Archivo abierto: {ruta}")
+        except Exception as e:
+            self._log(f"Error al abrir el archivo: {e}")
+
+    # ── Guardar archivo .bs / .txt ────────────────────────────────────────────
+    def _guardar_archivo(self):
+        """Abre un diálogo para guardar el contenido del editor en un archivo."""
+        ruta = filedialog.asksaveasfilename(
+            title="Guardar archivo BeatScript",
+            defaultextension=".bs",
+            filetypes=[
+                ("Archivos BeatScript", "*.bs"),
+                ("Archivos de texto",   "*.txt"),
+                ("Todos los archivos",  "*.*"),
+            ],
+        )
+        if not ruta:
+            return  # El usuario canceló
+
+        try:
+            contenido = self.editor.get("1.0", "end-1c")
+            with open(ruta, "w", encoding="utf-8") as f:
+                f.write(contenido)
+            self.title(f"BeatScript IDE — {os.path.basename(ruta)}")
+            self._log(f"Archivo guardado: {ruta}")
+        except Exception as e:
+            self._log(f"Error al guardar el archivo: {e}")
 
     def _detener(self):
         pygame.mixer.music.stop()

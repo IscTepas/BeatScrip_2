@@ -1,0 +1,22 @@
+# Oda a la Alegría — BeatScript
+tempo 110
+volume 80
+
+instrument violin
+
+track melodia {
+    E4 negra
+    E4 negra
+    F4 negra
+    G4 negra
+    G4 negra
+    F4 negra
+    E4 negra
+    D4 negra
+    C4 negra
+    C4 negra
+    D4 negra
+    E4 negra
+    E4 blanca
+    D4 blanca
+}

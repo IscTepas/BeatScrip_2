@@ -216,25 +216,20 @@ class BeatScriptParser:
         """
         Recuperación de errores en Modo Pánico (Panic Mode).
 
-        Descarta tokens uno a uno hasta encontrar alguno cuyo tipo esté
-        dentro de sync_tokens (token de sincronización seguro) o hasta
-        llegar al final del archivo.  Al retornar, el parser puede reanudar
-        el análisis desde un punto limpio sin generar errores en cascada.
+        Descarta tokens uno a uno hasta encontrar uno cuyo tipo esté dentro
+        de sync_tokens (token de sincronización seguro) o hasta llegar al
+        final del archivo. Al retornar, el parser reanuda el análisis desde
+        un punto limpio evitando errores en cascada.
 
         Args:
-            sync_tokens: Lista o set de tipos de token considerados seguros
-                         para reanudar el análisis (p. ej. inicio de sentencia
-                         o cierre de bloque).
-
-        Ejemplo de uso:
-            self._synchronize({"TRACK_KW", "INSTRUMENT_KW", "TEMPO_KW"})
+            sync_tokens: Lista o set de tipos de token seguros para reanudar
+                         el análisis (inicio de sentencia o cierre de bloque).
         """
         sync_set = set(sync_tokens)
         while not self._is_at_end():
-            current = self._current_token()
-            if current is not None and current.type in sync_set:
-                return          # Encontramos un punto seguro — detenemos el descarte
-            self._advance()     # Descartar token y seguir buscando
+            if self._current_token().type in sync_set:
+                return
+            self._advance()
 
     def _is_at_end(self):
         """Verifica si hemos llegado al final de los tokens."""
@@ -371,10 +366,9 @@ class BeatScriptParser:
                     f"Token inesperado: '{current.type}' con valor '{current.value}'",
                     token=current,
                 )
-            # Modo pánico: descartar tokens hasta el inicio de la próxima sentencia válida
             self._synchronize({
                 "TEMPO_KW", "VOLUME_KW", "INSTRUMENT_KW",
-                "TRACK_KW", "REPEAT_KW", "CHORD_KW",
+                "TRACK_KW", "REPEAT_KW",
             })
             return None
 
@@ -520,9 +514,8 @@ class BeatScriptParser:
                     f"Evento inesperado: '{current.type}' con valor '{current.value}'",
                     token=current,
                 )
-            # Modo pánico: descartar tokens hasta un punto seguro dentro del bloque
             self._synchronize({
-                "NOTE", "REST", "CHORD_KW", "REPEAT_KW", "RBRACE",
+                "NOTE", "REST", "REPEAT_KW", "RBRACE",
             })
             return None
 
