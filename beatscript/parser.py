@@ -212,6 +212,30 @@ class BeatScriptParser:
         if not self._is_at_end():
             self.pos += 1
 
+    def _synchronize(self, sync_tokens):
+        """
+        Recuperación de errores en Modo Pánico (Panic Mode).
+
+        Descarta tokens uno a uno hasta encontrar alguno cuyo tipo esté
+        dentro de sync_tokens (token de sincronización seguro) o hasta
+        llegar al final del archivo.  Al retornar, el parser puede reanudar
+        el análisis desde un punto limpio sin generar errores en cascada.
+
+        Args:
+            sync_tokens: Lista o set de tipos de token considerados seguros
+                         para reanudar el análisis (p. ej. inicio de sentencia
+                         o cierre de bloque).
+
+        Ejemplo de uso:
+            self._synchronize({"TRACK_KW", "INSTRUMENT_KW", "TEMPO_KW"})
+        """
+        sync_set = set(sync_tokens)
+        while not self._is_at_end():
+            current = self._current_token()
+            if current is not None and current.type in sync_set:
+                return          # Encontramos un punto seguro — detenemos el descarte
+            self._advance()     # Descartar token y seguir buscando
+
     def _is_at_end(self):
         """Verifica si hemos llegado al final de los tokens."""
         return self.pos >= len(self.tokens)
@@ -237,7 +261,7 @@ class BeatScriptParser:
         if current:
             self._add_error_with_suggestions(current, error_msg)
         else:
-            self._add_error(f"[EOF] {error_msg}")
+            self._add_error(f"Fin de archivo inesperado — {error_msg}")
 
         return None
 
@@ -247,13 +271,14 @@ class BeatScriptParser:
 
     def _add_error_with_suggestions(self, token, base_message):
         """
-        Registra un error sintáctico con [LÍNEA X, COL Y] y sugerencias opcionales.
+        Registra un error sintáctico con el formato estándar:
+        [ERROR SINTÁCTICO] Línea X, Col Y: <mensaje>
 
         Si el token es un IDENTIFIER similar a una palabra reservada,
         agrega una sugerencia útil al mensaje.
         """
         col = self._get_column(token)
-        error_line = f"[LÍNEA {token.lineno}, COL {col}] {base_message}"
+        error_line = f"[ERROR SINTÁCTICO] Línea {token.lineno}, Col {col}: {base_message}"
 
         # Buscar palabras reservadas parecidas si el token es un IDENTIFIER
         if token.type == "IDENTIFIER":
@@ -266,9 +291,21 @@ class BeatScriptParser:
 
         self.errors.append(error_line)
 
-    def _add_error(self, message):
-        """Registra un error de sintaxis (mensaje ya formateado)."""
-        self.errors.append(message)
+    def _add_error(self, message, token=None):
+        """
+        Registra un error sintáctico con el formato estándar:
+        [ERROR SINTÁCTICO] Línea X, Col Y: <mensaje>
+
+        Si se proporciona un token, extrae su línea y columna.
+        Si no hay token (caso EOF u otro), omite la posición.
+        """
+        if token is not None:
+            col = self._get_column(token)
+            self.errors.append(
+                f"[ERROR SINTÁCTICO] Línea {token.lineno}, Col {col}: {message}"
+            )
+        else:
+            self.errors.append(f"[ERROR SINTÁCTICO] {message}")
 
     # ─────────────────────────────────────────────────────────────────────────
     # PUNTO DE ENTRADA
@@ -315,27 +352,30 @@ class BeatScriptParser:
             return self._parse_repeat_statement()
         else:
             # Token inesperado: reportar error con columna y sugerencias
-            col = self._get_column(current)
             if current.type == "IDENTIFIER":
                 suggestions = _get_suggestions_for_word(current.value, cutoff=0.5)
                 if suggestions:
                     sugerencia = " | ".join(f"'{s}'" for s in suggestions)
                     self._add_error(
-                        f"[LÍNEA {current.lineno}, COL {col}] "
                         f"'{current.value}' no es una palabra reservada válida.\n"
-                        f"   💡 Sugerencia: ¿Quisiste decir {sugerencia}?"
+                        f"   💡 Sugerencia: ¿Quisiste decir {sugerencia}?",
+                        token=current,
                     )
                 else:
                     self._add_error(
-                        f"[LÍNEA {current.lineno}, COL {col}] "
-                        f"'{current.value}' no es una palabra reservada válida."
+                        f"'{current.value}' no es una palabra reservada válida.",
+                        token=current,
                     )
             else:
                 self._add_error(
-                    f"[LÍNEA {current.lineno}, COL {col}] "
-                    f"Token inesperado: '{current.type}' con valor '{current.value}'"
+                    f"Token inesperado: '{current.type}' con valor '{current.value}'",
+                    token=current,
                 )
-            self._advance()
+            # Modo pánico: descartar tokens hasta el inicio de la próxima sentencia válida
+            self._synchronize({
+                "TEMPO_KW", "VOLUME_KW", "INSTRUMENT_KW",
+                "TRACK_KW", "REPEAT_KW", "CHORD_KW",
+            })
             return None
 
     def _parse_tempo(self):
@@ -411,10 +451,9 @@ class BeatScriptParser:
         self._consume("RBRACE", "Se esperaba '}'")
 
         if not notas and kw_token:
-            col = self._get_column(kw_token)
             self._add_error(
-                f"[LÍNEA {kw_token.lineno}, COL {col}] "
-                f"El acorde debe contener al menos una nota antes de la duración."
+                "El acorde debe contener al menos una nota antes de la duración.",
+                token=kw_token,
             )
             return None
 
@@ -461,28 +500,30 @@ class BeatScriptParser:
             return self._parse_repeat_event()
         else:
             # Token inesperado: reportar error con columna y sugerencias
-            col = self._get_column(current)
             if current.type == "IDENTIFIER":
                 suggestions = _get_suggestions_for_word(current.value, cutoff=0.5)
                 if suggestions:
                     sugerencia = " | ".join(f"'{s}'" for s in suggestions)
                     self._add_error(
-                        f"[LÍNEA {current.lineno}, COL {col}] "
                         f"'{current.value}' no es válido en este contexto.\n"
-                        f"   💡 Sugerencia: ¿Quisiste decir {sugerencia}?"
+                        f"   💡 Sugerencia: ¿Quisiste decir {sugerencia}?",
+                        token=current,
                     )
                 else:
                     self._add_error(
-                        f"[LÍNEA {current.lineno}, COL {col}] "
                         f"'{current.value}' no es válido en este contexto.\n"
-                        f"   (Esperado: nota musical, 'rest', 'chord' o 'repeat')"
+                        f"   (Esperado: nota musical, 'rest', 'chord' o 'repeat')",
+                        token=current,
                     )
             else:
                 self._add_error(
-                    f"[LÍNEA {current.lineno}, COL {col}] "
-                    f"Evento inesperado: '{current.type}' con valor '{current.value}'"
+                    f"Evento inesperado: '{current.type}' con valor '{current.value}'",
+                    token=current,
                 )
-            self._advance()
+            # Modo pánico: descartar tokens hasta un punto seguro dentro del bloque
+            self._synchronize({
+                "NOTE", "REST", "CHORD_KW", "REPEAT_KW", "RBRACE",
+            })
             return None
 
     def _parse_note(self):

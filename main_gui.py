@@ -122,6 +122,19 @@ class BeatScriptIDE(ctk.CTk):
         inner.bind("<KeyRelease>", self._actualizar_estado)
         inner.bind("<ButtonRelease>", self._actualizar_estado)
 
+        # ── Tags de color para resaltado de sintaxis ──────────────────────────
+        inner.tag_configure("hl_keyword",    foreground="#7986cb")  # azul-morado
+        inner.tag_configure("hl_note",       foreground="#66bb6a")  # verde
+        inner.tag_configure("hl_duration",   foreground="#ffb74d")  # naranja
+        inner.tag_configure("hl_instrument", foreground="#4dd0e1")  # cian
+        inner.tag_configure("hl_number",     foreground="#ff8a65")  # naranja claro
+        inner.tag_configure("hl_brace",      foreground="#e0e0e0")  # blanco suave
+        inner.tag_configure("hl_comment",    foreground="#546e7a")  # gris
+        inner.tag_configure("hl_identifier", foreground="#cfd8dc")  # gris claro
+
+        # Re-aplicar resaltado en cada pulsación de tecla
+        inner.bind("<KeyRelease>", self._on_key, add="+")
+
     # ── Panel derecho: tabla de tokens (50%) + árbol AST (50%) ───────────────
     def _build_right_panels(self, parent):
         frame = ctk.CTkFrame(parent, corner_radius=0, fg_color="transparent")
@@ -284,6 +297,69 @@ class BeatScriptIDE(ctk.CTk):
             fg_color="#1a1a1a",
         )
         self.consola.pack(fill="both", expand=True, padx=8, pady=(0, 8))
+
+    # ── Resaltado de sintaxis ─────────────────────────────────────────────────
+    # Mapa token-type → tag de color
+    _TOKEN_TAG = {
+        "TEMPO_KW":      "hl_keyword",
+        "INSTRUMENT_KW": "hl_keyword",
+        "TRACK_KW":      "hl_keyword",
+        "REPEAT_KW":     "hl_keyword",
+        "CHORD_KW":      "hl_keyword",
+        "REST":          "hl_keyword",
+        "VOLUME_KW":     "hl_keyword",
+        "NOTE":          "hl_note",
+        "DURATION":      "hl_duration",
+        "INSTR_NAME":    "hl_instrument",
+        "NUMBER":        "hl_number",
+        "LBRACE":        "hl_brace",
+        "RBRACE":        "hl_brace",
+        "IDENTIFIER":    "hl_identifier",
+    }
+
+    def _on_key(self, event=None):
+        """Wrapper que dispara el resaltado al escribir."""
+        self._aplicar_resaltado()
+
+    def _aplicar_resaltado(self):
+        """
+        Recorre el código fuente con el lexer y aplica tags de color
+        al widget tk.Text interno del editor.
+        """
+        import re
+        try:
+            from beatscript.lexer import tokenize
+        except ImportError:
+            return
+
+        inner  = self.editor._textbox
+        source = inner.get("1.0", "end-1c")
+
+        # Limpiar todos los tags de resaltado anteriores
+        for tag in self._TOKEN_TAG.values():
+            inner.tag_remove(tag, "1.0", "end")
+        inner.tag_remove("hl_comment", "1.0", "end")
+
+        # ── Colorear comentarios primero (regex, el lexer los descarta) ───────
+        for m in re.finditer(r"#[^\n]*", source):
+            start = f"1.0 + {m.start()} chars"
+            end   = f"1.0 + {m.end()} chars"
+            inner.tag_add("hl_comment", start, end)
+
+        # ── Colorear tokens devueltos por el lexer ────────────────────────────
+        try:
+            tokens, _ = tokenize(source, collect_errors=True)
+        except Exception:
+            return
+
+        for tok in tokens:
+            tag = self._TOKEN_TAG.get(tok.type)
+            if tag is None:
+                continue
+            tok_len = len(str(tok.value))
+            start   = f"1.0 + {tok.lexpos} chars"
+            end     = f"1.0 + {tok.lexpos + tok_len} chars"
+            inner.tag_add(tag, start, end)
 
     # ── Barra de estado: actualizar posición del cursor ───────────────────────
     def _actualizar_estado(self, event=None):
@@ -603,8 +679,9 @@ track melodia {
 """
         self.editor.delete("1.0", "end")
         self.editor.insert("1.0", ejemplo)
-        # Sincronizar la barra de estado con el contenido inicial
+        # Sincronizar la barra de estado y aplicar resaltado inicial
         self._actualizar_estado()
+        self._aplicar_resaltado()
 
 
 # ─── Entry point ──────────────────────────────────────────────────────────────
