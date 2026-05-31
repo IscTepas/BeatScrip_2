@@ -23,7 +23,7 @@ class BeatScriptIDE(ctk.CTk):
 
         self.title("BeatScript IDE")
         self.geometry("1200x800")
-        self.state("zoomed")  # Maximizada en Windows
+        self.after(0, lambda: self.state("zoomed"))
 
         pygame.mixer.pre_init(44100, -16, 2, 512)
         pygame.mixer.init()
@@ -101,32 +101,25 @@ class BeatScriptIDE(ctk.CTk):
         self._build_right_panels(main)
 
     # ── Editor de código (izquierda) con barra de estado ─────────────────────
+    _EDITOR_BG  = "#1e1e1e"
+    _LINENUM_FG = "#4a5568"
+
     def _build_editor(self, parent):
         frame = ctk.CTkFrame(parent, corner_radius=8)
         frame.grid(row=0, column=0, sticky="nsew", padx=(0, 5))
-        frame.rowconfigure(1, weight=1)   # El textbox ocupa todo el espacio
-        frame.columnconfigure(0, weight=1)
 
+        # pack: label arriba, status bar abajo, editor en el medio expandido
         ctk.CTkLabel(
             frame,
             text="Editor de código",
             font=ctk.CTkFont(size=12, weight="bold"),
             text_color="#90caf9",
-        ).grid(row=0, column=0, sticky="w", padx=12, pady=(8, 2))
+        ).pack(anchor="w", padx=12, pady=(8, 2))
 
-        self.editor = ctk.CTkTextbox(
-            frame,
-            font=("Consolas", 13),
-            wrap="none",
-            activate_scrollbars=True,
-        )
-        self.editor.grid(row=1, column=0, sticky="nsew", padx=8, pady=(0, 0))
-
-        # ── Barra de estado del editor (Línea / Col / Total líneas) ──────────
-        # Se actualiza con cada pulsación de tecla o clic del ratón
+        # ── Barra de estado (pack al fondo antes del editor) ──────────────────
         status_bar = ctk.CTkFrame(frame, height=26, corner_radius=0, fg_color="#1a1a2e")
-        status_bar.grid(row=2, column=0, sticky="ew", padx=8, pady=(0, 8))
-        status_bar.grid_propagate(False)
+        status_bar.pack(side="bottom", fill="x", padx=8, pady=(0, 8))
+        status_bar.pack_propagate(False)
 
         self.status_label = ctk.CTkLabel(
             status_bar,
@@ -137,23 +130,71 @@ class BeatScriptIDE(ctk.CTk):
         )
         self.status_label.pack(side="left", padx=4, fill="x", expand=True)
 
-        # Enlazar eventos al widget interno de tk.Text para actualizar la barra
+        # ── Contenedor editor: canvas de números │ sep │ textbox ────────────────
+        editor_container = tk.Frame(frame, bg=self._EDITOR_BG, bd=0)
+        editor_container.pack(fill="both", expand=True, padx=8, pady=(0, 0))
+
+        # Canvas para números de línea — dibuja cada número en la posición
+        # exacta en píxeles usando dlineinfo, eliminando cualquier desfase
+        self._line_canvas = tk.Canvas(
+            editor_container,
+            width=38,
+            bg=self._EDITOR_BG,
+            bd=0,
+            highlightthickness=0,
+            takefocus=False,
+        )
+        self._line_canvas.pack(side="left", fill="y")
+
+        # Separador visual
+        tk.Frame(editor_container, bg="#2a2a3e", width=1).pack(side="left", fill="y")
+
+        # Editor principal
+        self.editor = ctk.CTkTextbox(
+            editor_container,
+            font=("Consolas", 13),
+            wrap="none",
+            activate_scrollbars=True,
+            fg_color=self._EDITOR_BG,
+        )
+        self.editor.pack(side="left", fill="both", expand=True)
+
         inner = self.editor._textbox
-        inner.bind("<KeyRelease>", self._actualizar_estado)
+        inner.config(padx=6, pady=4, bd=0, highlightthickness=0)
+
+        # Scroll: redibujar números en cada movimiento del scroll
+        orig_yscroll = inner.cget("yscrollcommand")
+        def _yscroll_chain(*args):
+            if orig_yscroll:
+                self.tk.call(orig_yscroll, *args)
+            self.after_idle(self._actualizar_lineas)
+        inner.config(yscrollcommand=_yscroll_chain)
+
+        # MouseWheel sobre el canvas también scrollea el editor
+        self._line_canvas.bind(
+            "<MouseWheel>",
+            lambda e: inner.yview_scroll(int(-1 * (e.delta / 120)), "units")
+        )
+
+        # ── Eventos ───────────────────────────────────────────────────────────
+        inner.bind("<KeyRelease>",    self._actualizar_estado)
         inner.bind("<ButtonRelease>", self._actualizar_estado)
+        inner.bind("<KeyRelease>",    self._on_key, add="+")
+        inner.bind("<<Paste>>",       lambda e: self.after_idle(self._actualizar_lineas), add="+")
+        inner.bind("<<Cut>>",         lambda e: self.after_idle(self._actualizar_lineas), add="+")
+        inner.bind("<<Undo>>",        lambda e: self.after_idle(self._actualizar_lineas), add="+")
+        inner.bind("<<Redo>>",        lambda e: self.after_idle(self._actualizar_lineas), add="+")
+        inner.bind("<ButtonRelease>", lambda e: self.after_idle(self._actualizar_lineas), add="+")
 
         # ── Tags de color para resaltado de sintaxis ──────────────────────────
-        inner.tag_configure("hl_keyword",    foreground="#7986cb")  # azul-morado
-        inner.tag_configure("hl_note",       foreground="#66bb6a")  # verde
-        inner.tag_configure("hl_duration",   foreground="#ffb74d")  # naranja
-        inner.tag_configure("hl_instrument", foreground="#4dd0e1")  # cian
-        inner.tag_configure("hl_number",     foreground="#ff8a65")  # naranja claro
-        inner.tag_configure("hl_brace",      foreground="#e0e0e0")  # blanco suave
-        inner.tag_configure("hl_comment",    foreground="#546e7a")  # gris
-        inner.tag_configure("hl_identifier", foreground="#cfd8dc")  # gris claro
-
-        # Re-aplicar resaltado en cada pulsación de tecla
-        inner.bind("<KeyRelease>", self._on_key, add="+")
+        inner.tag_configure("hl_keyword",    foreground="#7986cb")
+        inner.tag_configure("hl_note",       foreground="#66bb6a")
+        inner.tag_configure("hl_duration",   foreground="#ffb74d")
+        inner.tag_configure("hl_instrument", foreground="#4dd0e1")
+        inner.tag_configure("hl_number",     foreground="#ff8a65")
+        inner.tag_configure("hl_brace",      foreground="#e0e0e0")
+        inner.tag_configure("hl_comment",    foreground="#546e7a")
+        inner.tag_configure("hl_identifier", foreground="#cfd8dc")
 
     # ── Panel derecho: tabla de tokens (50%) + árbol AST (50%) ───────────────
     def _build_right_panels(self, parent):
@@ -318,6 +359,46 @@ class BeatScriptIDE(ctk.CTk):
         )
         self.consola.pack(fill="both", expand=True, padx=8, pady=(0, 8))
 
+    # ── Números de línea (canvas) ─────────────────────────────────────────────
+    def _actualizar_lineas(self):
+        """
+        Redibuja los números de línea en el canvas usando dlineinfo.
+        Calcula el offset vertical entre el canvas y el _textbox interno
+        para compensar el padding interno del CTkTextbox.
+        """
+        try:
+            inner  = self.editor._textbox
+            canvas = self._line_canvas
+            canvas.delete("all")
+
+            # Offset Y: diferencia entre el origen del canvas y el del _textbox
+            # (el CTkTextbox añade padding interno que desplaza el _textbox)
+            offset = inner.winfo_rooty() - canvas.winfo_rooty()
+
+            first = int(inner.index("@0,0").split(".")[0])
+            last  = int(inner.index(f"@0,{inner.winfo_height()}").split(".")[0])
+            cw    = canvas.winfo_width() - 4
+
+            for lineno in range(first, last + 2):
+                info = inner.dlineinfo(f"{lineno}.0")
+                if info is None:
+                    break
+                # info[1]=y_top, info[3]=height — aplicar offset del widget
+                y_center = info[1] + info[3] // 2 + offset
+                canvas.create_text(
+                    cw, y_center,
+                    text=str(lineno),
+                    anchor="e",
+                    fill=self._LINENUM_FG,
+                    font=("Consolas", 13),
+                )
+        except Exception:
+            pass
+
+    def _on_editor_scroll(self, *args):
+        """No se usa con el canvas — el chain en yscrollcommand llama a _actualizar_lineas."""
+        pass
+
     # ── Resaltado de sintaxis ─────────────────────────────────────────────────
     # Mapa token-type → tag de color
     _TOKEN_TAG = {
@@ -338,8 +419,9 @@ class BeatScriptIDE(ctk.CTk):
     }
 
     def _on_key(self, event=None):
-        """Wrapper que dispara el resaltado al escribir."""
+        """Dispara resaltado y actualización de líneas al escribir."""
         self._aplicar_resaltado()
+        self.after_idle(self._actualizar_lineas)
 
     def _aplicar_resaltado(self):
         """
@@ -394,8 +476,10 @@ class BeatScriptIDE(ctk.CTk):
             linea, col_raw = pos.split(".")
             col = int(col_raw) + 1  # Convertir a base 1
 
-            # Total de líneas sin contar la línea vacía final de tk.Text
             total = int(inner.index("end-1c").split(".")[0])
+            # Descontar línea vacía final si el texto termina en newline
+            if inner.get(f"{total}.0", f"{total}.end").strip() == "":
+                total = max(1, total - 1)
 
             self.status_label.configure(
                 text=f"  Línea: {linea}, Col: {col}  |  Líneas totales: {total}"
@@ -606,7 +690,15 @@ class BeatScriptIDE(ctk.CTk):
 
             elif tok.type in ("NOTE", "REST"):
                 siguiente = tokens[i + 1] if i + 1 < len(tokens) else None
-                if siguiente and siguiente.type == "IDENTIFIER":
+                if siguiente and siguiente.type == "NUMBER":
+                    # Caso E44, E44444, etc. — el lexer parte NOTE(E4) + NUMBER(4...)
+                    col = self._calcular_columna(source, tok)
+                    avisos.append(
+                        f"[AVISO] Línea {tok.lineno}, Col {col}: "
+                        f"'{tok.value}{siguiente.value}' parece una nota inválida — "
+                        f"el número de octava debe ser un solo dígito: ej: E4, C4, D#3"
+                    )
+                elif siguiente and siguiente.type == "IDENTIFIER":
                     col = self._calcular_columna(source, siguiente)
                     avisos.append(
                         f"[AVISO] Línea {siguiente.lineno}, Col {col}: "
@@ -648,7 +740,8 @@ class BeatScriptIDE(ctk.CTk):
             self.editor.delete("1.0", "end")
             self.editor.insert("1.0", contenido)
             self._actualizar_estado()
-            self._aplicar_resaltado()
+            self.after(100, self._actualizar_lineas)
+            self.after(100, self._aplicar_resaltado)
             self.title(f"BeatScript IDE — {os.path.basename(ruta)}")
             self._log(f"Archivo abierto: {ruta}")
         except Exception as e:
@@ -749,9 +842,9 @@ track melodia {
 """
         self.editor.delete("1.0", "end")
         self.editor.insert("1.0", ejemplo)
-        # Sincronizar la barra de estado y aplicar resaltado inicial
         self._actualizar_estado()
-        self._aplicar_resaltado()
+        self.after(100, self._actualizar_lineas)
+        self.after(100, self._aplicar_resaltado)
 
 
 # ─── Entry point ──────────────────────────────────────────────────────────────

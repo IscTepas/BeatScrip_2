@@ -641,7 +641,7 @@ def ast_to_tree_string(node, indent="", is_last=True):
     lines = []
 
     if isinstance(node, Program):
-        lines.append("📋 Program")
+        lines.append("Program")
         statements = node.statements
         for i, stmt in enumerate(statements):
             is_last_stmt = (i == len(statements) - 1)
@@ -651,16 +651,16 @@ def ast_to_tree_string(node, indent="", is_last=True):
             lines.append(indent + connector + tree_str)
 
     elif isinstance(node, Tempo):
-        return f"⏱️  Tempo: {node.bpm} BPM"
+        return f"Tempo: {node.bpm} BPM"
 
     elif isinstance(node, Volume):
-        return f"🔊 Volume: {node.level}"
+        return f"Volume: {node.level}"
 
     elif isinstance(node, Instrument):
-        return f"🎹 Instrument: {node.name}"
+        return f"Instrument: {node.name}"
 
     elif isinstance(node, Track):
-        lines.append(f"📁 Track '{node.name}'")
+        lines.append(f"Track '{node.name}'")
         events = node.events
         for i, event in enumerate(events):
             is_last_event = (i == len(events) - 1)
@@ -670,21 +670,21 @@ def ast_to_tree_string(node, indent="", is_last=True):
             lines.append(indent + connector + tree_str)
 
     elif isinstance(node, Note):
-        return f"🎵 {node.pitch} ({node.duration})"
+        return f" {node.pitch} ({node.duration})"
 
     elif isinstance(node, Rest):
-        return f"⏸️  Silencio ({node.duration})"
+        return f"  Silencio ({node.duration})"
 
     elif isinstance(node, Chord):
         # Mostrar el acorde como un subárbol con sus notas individuales
-        lines.append(f"🎼 Chord ({node.duration})")
+        lines.append(f" Chord ({node.duration})")
         for i, pitch in enumerate(node.notes):
             is_last_note = (i == len(node.notes) - 1)
             connector = "└── " if is_last_note else "├── "
             lines.append(indent + connector + f"🎵 {pitch}")
 
     elif isinstance(node, Repeat):
-        lines.append(f"🔁 Repeat ×{node.count}")
+        lines.append(f" Repeat ×{node.count}")
         events = node.events
         for i, event in enumerate(events):
             is_last_event = (i == len(events) - 1)
