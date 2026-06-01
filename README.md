@@ -152,11 +152,11 @@ chord {
 
 ## Etapas del compilador (roadmap)
 
-- [x] Etapa 1: Analizador Lexico (Lexer)
-- [ ] Etapa 2: Analizador Sintactico (Parser) + AST
-- [ ] Etapa 3: Analisis Semantico
-- [ ] Etapa 4: Generacion de codigo MIDI
-- [ ] Etapa 5: Interfaz visual
+- [x] Etapa 1: Analizador Lexico (Lexer) — PLY/DFA, 13 tokens, errores con linea/columna
+- [x] Etapa 2: Analizador Sintactico (Parser) + AST — LL(1) recursivo descendente, 9 nodos AST, Modo Panico
+- [x] Etapa 3: Validacion post-lexica — filtro de patrones invalidos entre Lexer y Parser
+- [x] Etapa 4: Generacion de codigo MIDI — tokens → archivo .mid con midiutil
+- [x] Etapa 5: Interfaz visual — IDE completo con resaltado de sintaxis, tabla de tokens, arbol AST, consola
 
 ## Equipo
 
