@@ -1,0 +1,104 @@
+tempo 100
+volume 90
+instrument piano
+
+track introduccion {
+    C4 negra
+    E4 negra
+    G4 negra
+    C5 blanca
+    rest corchea
+    B4 corchea
+    A4 negra
+    G4 blanca
+}
+
+volume 75
+instrument violin
+
+track melodia_alterada {
+    D#4 negra
+    F#4 negra
+    A#4 negra
+    Bb4 blanca
+    Eb4 negra
+    Ab3 negra
+    Gb3 blanca
+    rest negra
+}
+
+chord { C4 E4 G4 blanca }
+
+volume 85
+instrument guitar
+
+track riff_repetido {
+    repeat 3 {
+        E3 corchea
+        G3 corchea
+        B3 corchea
+        D4 corchea
+    }
+    rest negra
+    A3 blanca
+}
+
+tempo 120
+volume 95
+instrument trumpet
+
+track fanfarria {
+    C5 semicorchea
+    D5 semicorchea
+    E5 semicorchea
+    F5 semicorchea
+    G5 negra
+    rest corchea
+    G5 corchea
+    C6 redonda
+}
+
+chord { D4 F#4 A4 negra }
+
+volume 70
+instrument cello
+
+track bajo {
+    C2 blanca
+    G2 blanca
+    A2 blanca
+    F2 blanca
+    repeat 2 {
+        C2 negra
+        E2 negra
+        G2 negra
+        B1 negra
+    }
+}
+
+tempo 110
+volume 80
+instrument flute
+
+repeat 2 {
+    track frase_flute {
+        E5 corchea
+        D5 corchea
+        C5 negra
+        B4 negra
+        A4 blanca
+        rest corchea
+        G4 corchea
+    }
+}
+
+volume 100
+instrument piano
+
+track cierre {
+    C4 negra
+    chord { C4 E4 G4 negra }
+    chord { F4 A4 C5 negra }
+    chord { G4 B4 D5 negra }
+    chord { C4 E4 G4 C5 redonda }
+}

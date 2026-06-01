@@ -1,16 +1,3 @@
-"""
-test_parser.py — Pruebas unitarias e integración para BeatScriptParser
-=======================================================================
-Cubre 3 escenarios clave:
-  1. Integración exitosa  : Lexer → Parser sin errores, AST válido
-  2. Modo Pánico          : Parser se recupera de un error y sigue procesando
-  3. EOF inesperado       : Falta la llave de cierre '}'
-
-Ejecutar:
-    python -m beatscript.tests.test_parser
-    python -m unittest beatscript.tests.test_parser -v
-"""
-
 import unittest
 import sys
 import os
@@ -28,9 +15,7 @@ from beatscript.parser import (
 )
 
 
-# ---------------------------------------------------------------------------
 # Clase base con helper para construir el pipeline Lexer → Parser
-# ---------------------------------------------------------------------------
 
 class BeatScriptParserTestCase(unittest.TestCase):
     """Clase base con utilidades comunes para todos los tests del parser."""
@@ -49,9 +34,7 @@ class BeatScriptParserTestCase(unittest.TestCase):
         return ast, parser.errors, tokens
 
 
-# ===========================================================================
 # TEST 1 — Integración exitosa (Lexer → Parser)
-# ===========================================================================
 
 class TestIntegracionExitosa(BeatScriptParserTestCase):
     """
@@ -119,9 +102,7 @@ class TestIntegracionExitosa(BeatScriptParserTestCase):
         self.assertEqual(nota_d4.duration, "blanca")
 
 
-# ===========================================================================
 # TEST 2 — Modo Pánico (Recuperación de Errores)
-# ===========================================================================
 
 class TestModoPanico(BeatScriptParserTestCase):
     """
@@ -189,9 +170,7 @@ class TestModoPanico(BeatScriptParserTestCase):
         self.assertEqual(notas_validas[0].duration, "corchea")
 
 
-# ===========================================================================
 # TEST 3 — Error Estructural (EOF Inesperado / Llave sin cerrar)
-# ===========================================================================
 
 class TestEOFInesperado(BeatScriptParserTestCase):
     """
@@ -247,9 +226,7 @@ class TestEOFInesperado(BeatScriptParserTestCase):
         )
 
 
-# ===========================================================================
 # TEST 4 — Programa complejo: repeat + chord + múltiples tracks  (3.3)
-# ===========================================================================
 
 class TestCasosComplejos(BeatScriptParserTestCase):
     """
@@ -353,9 +330,7 @@ class TestCasosComplejos(BeatScriptParserTestCase):
         self.assertEqual(ast.statements[0].count, 3)
 
 
-# ===========================================================================
 # TEST 5 — Errores léxicos propagados al pipeline  (3.4)
-# ===========================================================================
 
 class TestErroresLexicos(BeatScriptParserTestCase):
     """
@@ -421,9 +396,7 @@ class TestErroresLexicos(BeatScriptParserTestCase):
         self.assertIn("NUMBER", tipos)
 
 
-# ===========================================================================
 # TEST 6 — Errores en chord y repeat  (3.4 — casos de error estructurales)
-# ===========================================================================
 
 class TestErroresEstructurales(BeatScriptParserTestCase):
     """
@@ -504,9 +477,7 @@ class TestErroresEstructurales(BeatScriptParserTestCase):
             msg="E4 negra debería estar en el AST tras la recuperación de múltiples errores.")
 
 
-# ===========================================================================
 # TEST 7 — Mensajes de error con sugerencias difflib  (2.3 + 3.4)
-# ===========================================================================
 
 class TestSugerenciasParser(BeatScriptParserTestCase):
     """

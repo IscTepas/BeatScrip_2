@@ -1,10 +1,3 @@
-"""
-test_lexer.py — Pruebas del Analizador Léxico de BeatScript
-===========================================================
-Cubre: keywords, notas, duraciones, instrumentos, números,
-       identificadores, comentarios, errores léxicos.
-"""
-
 import sys
 import os
 
