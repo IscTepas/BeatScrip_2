@@ -617,7 +617,8 @@ class BeatScriptIDE(ctk.CTk):
             self._log(f"Error durante el análisis sintáctico: {e}")
             return
 
-        # Generar y reproducir MIDI 
+
+        # Generar y reproducir MIDI
         try:
             from beatscript.midi_gen import tokens_to_midi
             midi_path = os.path.join(
