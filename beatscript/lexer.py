@@ -21,10 +21,8 @@ Tokens reconocidos:
 
 import ply.lex as lex
 
-# =============================================================
 # 1. PALABRAS RESERVADAS
 #    Mapa: valor_literal -> tipo_de_token
-# =============================================================
 
 RESERVED: dict[str, str] = {
     # Comandos
@@ -88,10 +86,8 @@ RESERVED: dict[str, str] = {
     "harmonica"   : "INSTR_NAME",
 }
 
-# =============================================================
 # 2. LISTA DE TIPOS DE TOKENS
 #    PLY requiere esta tupla con todos los nombres de tokens.
-# =============================================================
 
 tokens = (
     "TEMPO_KW",
@@ -199,9 +195,7 @@ def t_error(t):
     t.lexer.skip(1)
 
 
-# =============================================================
 # 4. UTILIDADES
-# =============================================================
 
 # Mensajes de error específicos por carácter
 _ERROR_HINTS: dict[str, str] = {
@@ -294,9 +288,7 @@ def _print_token_table(token_list: list, source: str = "") -> None:
     print("=" * W + "\n")
 
 
-# =============================================================
 # 5. DEMO — ejecución directa
-# =============================================================
 
 if __name__ == "__main__":
     SAMPLE = """\

@@ -41,7 +41,7 @@ try:
     tokens, errors = tokenize(code, collect_errors=True)
     
     if errors:
-        print("❌ Errores léxicos:")
+        print(" Errores léxicos:")
         for err in errors:
             print(f"   {err['msg']}")
     else:
@@ -49,22 +49,22 @@ try:
         ast = parser.parse()
         
         if parser.errors:
-            print("❌ Errores sintácticos:")
+            print(" Errores sintácticos:")
             for err in parser.errors:
                 print(f"   {err}")
         else:
-            print("✅ Parse completado sin errores\n")
+            print(" Parse completado sin errores\n")
             print("VISUALIZACIÓN DEL AST:")
             print("-" * 70)
             tree_str = ast_to_tree_string(ast)
             print(tree_str)
             print("-" * 70)
-            print(f"\n📊 Estadísticas:")
+            print(f"\n Estadísticas:")
             print(f"   Líneas: {tree_str.count(chr(10)) + 1}")
             print(f"   Caracteres: {len(tree_str)}")
 
 except Exception as e:
-    print(f"⚠️  Error: {e}")
+    print(f"  Error: {e}")
     import traceback
     traceback.print_exc()
 

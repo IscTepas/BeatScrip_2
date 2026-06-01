@@ -24,9 +24,7 @@ import os as _os
 import difflib
 from beatscript.lexer import RESERVED
 
-# ═══════════════════════════════════════════════════════════════════════════
 # 0. UTILIDADES DE SUGERENCIAS
-# ═══════════════════════════════════════════════════════════════════════════
 
 def _get_suggestions_for_word(word, keywords_dict=None, cutoff=0.6, max_suggestions=3):
     """
@@ -54,9 +52,7 @@ def _get_suggestions_for_word(word, keywords_dict=None, cutoff=0.6, max_suggesti
     return suggestions
 
 
-# ═══════════════════════════════════════════════════════════════════════════
 # 1. CLASES DE NODOS DEL AST
-# ═══════════════════════════════════════════════════════════════════════════
 
 class ASTNode:
     """Clase base para todos los nodos del árbol sintáctico."""
@@ -156,9 +152,7 @@ class Repeat(ASTNode):
         return f"Repeat({self.count})"
 
 
-# ═══════════════════════════════════════════════════════════════════════════
 # 2. PARSER RECURSIVO DESCENDENTE
-# ═══════════════════════════════════════════════════════════════════════════
 
 class BeatScriptParser:
     """Parser que convierte tokens en un árbol sintáctico (AST)."""
@@ -176,9 +170,7 @@ class BeatScriptParser:
         self.pos = 0        # Posición actual en la lista de tokens
         self.errors = []    # Errores de sintaxis encontrados
 
-    # ─────────────────────────────────────────────────────────────────────────
     # CÁLCULO DE COLUMNA (igual al _find_column del lexer)
-    # ─────────────────────────────────────────────────────────────────────────
 
     def _get_column(self, token):
         """
@@ -190,9 +182,7 @@ class BeatScriptParser:
         line_start = self.source_code.rfind("\n", 0, token.lexpos) + 1
         return token.lexpos - line_start + 1
 
-    # ─────────────────────────────────────────────────────────────────────────
     # MÉTODOS DE NAVEGACIÓN
-    # ─────────────────────────────────────────────────────────────────────────
 
     def _current_token(self):
         """Retorna el token actual sin avanzar."""
@@ -260,9 +250,7 @@ class BeatScriptParser:
 
         return None
 
-    # ─────────────────────────────────────────────────────────────────────────
     # REGISTRO DE ERRORES
-    # ─────────────────────────────────────────────────────────────────────────
 
     def _add_error_with_suggestions(self, token, base_message):
         """
@@ -302,9 +290,7 @@ class BeatScriptParser:
         else:
             self.errors.append(f"[ERROR SINTÁCTICO] {message}")
 
-    # ─────────────────────────────────────────────────────────────────────────
     # PUNTO DE ENTRADA
-    # ─────────────────────────────────────────────────────────────────────────
 
     def parse(self):
         """
@@ -322,9 +308,7 @@ class BeatScriptParser:
 
         return program
 
-    # ─────────────────────────────────────────────────────────────────────────
     # SENTENCIAS (nivel superior)
-    # ─────────────────────────────────────────────────────────────────────────
 
     def _parse_statement(self):
         """Parsea una sentencia principal: tempo, volume, instrument, track, chord, repeat."""
@@ -473,9 +457,7 @@ class BeatScriptParser:
             return Repeat(count_token.value, statements)
         return None
 
-    # ─────────────────────────────────────────────────────────────────────────
     # EVENTOS (dentro de tracks)
-    # ─────────────────────────────────────────────────────────────────────────
 
     def _parse_event(self):
         """Parsea un evento dentro de un track: nota, rest, chord o repeat."""
@@ -560,9 +542,7 @@ class BeatScriptParser:
         return None
 
 
-# ═══════════════════════════════════════════════════════════════════════════
 # 3. FUNCIÓN DE UTILIDAD PARA CONVERTIR AST A REPRESENTACIÓN DE TABLA
-# ═══════════════════════════════════════════════════════════════════════════
 
 def ast_to_table_rows(node, parent_id=""):
     """
@@ -593,33 +573,31 @@ def ast_to_table_rows(node, parent_id=""):
 
     elif isinstance(node, Track):
         track_id = f"Track {node.name}"
-        rows.append((parent_id, track_id, ("📁 Track", "Declaración", node.name), "expandable"))
+        rows.append((parent_id, track_id, ("Track", "Declaración", node.name), "expandable"))
         for event in node.events:
             rows.extend(ast_to_table_rows(event, track_id))
 
     elif isinstance(node, Note):
-        rows.append((parent_id, f"Note {node.pitch}", ("🎵 Nota", "Evento", f"{node.pitch} ({node.duration})"), "leaf"))
+        rows.append((parent_id, f"Note {node.pitch}", ("Nota", "Evento", f"{node.pitch} ({node.duration})"), "leaf"))
 
     elif isinstance(node, Rest):
-        rows.append((parent_id, f"Rest {node.duration}", ("⏸️  Silencio", "Evento", node.duration), "leaf"))
+        rows.append((parent_id, f"Rest {node.duration}", ("Silencio", "Evento", node.duration), "leaf"))
 
     elif isinstance(node, Chord):
         notas_str = " + ".join(node.notes)
         chord_id = f"Chord {notas_str}"
-        rows.append((parent_id, chord_id, ("🎼 Chord", "Evento", f"{notas_str} ({node.duration})"), "leaf"))
+        rows.append((parent_id, chord_id, ("Chord", "Evento", f"{notas_str} ({node.duration})"), "leaf"))
 
     elif isinstance(node, Repeat):
         repeat_id = f"Repeat {node.count}"
-        rows.append((parent_id, repeat_id, ("🔁 Repeat", "Control", f"{node.count}x"), "expandable"))
+        rows.append((parent_id, repeat_id, ("Repeat", "Control", f"{node.count}x"), "expandable"))
         for event in node.events:
             rows.extend(ast_to_table_rows(event, repeat_id))
 
     return rows
 
 
-# ═══════════════════════════════════════════════════════════════════════════
 # 4. FUNCIÓN DE UTILIDAD PARA VISUALIZACIÓN TIPO ÁRBOL
-# ═══════════════════════════════════════════════════════════════════════════
 
 def ast_to_tree_string(node, indent="", is_last=True):
     """
@@ -670,21 +648,20 @@ def ast_to_tree_string(node, indent="", is_last=True):
             lines.append(indent + connector + tree_str)
 
     elif isinstance(node, Note):
-        return f" {node.pitch} ({node.duration})"
+        return f"Nota: {node.pitch} ({node.duration})"
 
     elif isinstance(node, Rest):
-        return f"  Silencio ({node.duration})"
+        return f"Silencio ({node.duration})"
 
     elif isinstance(node, Chord):
-        # Mostrar el acorde como un subárbol con sus notas individuales
-        lines.append(f" Chord ({node.duration})")
+        lines.append(f"Chord ({node.duration})")
         for i, pitch in enumerate(node.notes):
             is_last_note = (i == len(node.notes) - 1)
             connector = "└── " if is_last_note else "├── "
-            lines.append(indent + connector + f"🎵 {pitch}")
+            lines.append(indent + connector + pitch)
 
     elif isinstance(node, Repeat):
-        lines.append(f" Repeat ×{node.count}")
+        lines.append(f"Repeat x{node.count}")
         events = node.events
         for i, event in enumerate(events):
             is_last_event = (i == len(events) - 1)
@@ -696,9 +673,7 @@ def ast_to_tree_string(node, indent="", is_last=True):
     return "\n".join(lines) if lines else str(node)
 
 
-# ═══════════════════════════════════════════════════════════════════════════
 # 5. ÁRBOL DE DERIVACIÓN VISUAL CON GRAPHVIZ
-# ═══════════════════════════════════════════════════════════════════════════
 
 def generate_visual_tree(ast_root, output_filename="parse_tree"):
     """
@@ -736,7 +711,7 @@ def generate_visual_tree(ast_root, output_filename="parse_tree"):
                 _os.environ["PATH"] = _candidato + _os.pathsep + _os.environ.get("PATH", "")
                 break
 
-    # ── Configuración del grafo ───────────────────────────────────────────────
+    #  Configuración del grafo 
     dot = graphviz.Digraph(
         name="BeatScript_ParseTree",
         comment="BeatScript — Árbol de Derivación",
@@ -772,7 +747,7 @@ def generate_visual_tree(ast_root, output_filename="parse_tree"):
         _uid[0] += 1
         return f"n{_uid[0]}"
 
-    # ── Helpers: tipos de nodos ───────────────────────────────────────────────
+    #  Helpers: tipos de nodos 
 
     def nodo_regla(etiqueta, color="#283593"):
         """Nodo interno — representa una regla gramatical (rectángulo)."""
@@ -801,7 +776,7 @@ def generate_visual_tree(ast_root, output_filename="parse_tree"):
     def arco(padre, hijo):
         dot.edge(padre, hijo)
 
-    # ── Visitores recursivos ──────────────────────────────────────────────────
+    # Visitores recursivos 
 
     def visitar(node):
         """Despacha al visitante correcto según el tipo de nodo."""
@@ -913,7 +888,7 @@ def generate_visual_tree(ast_root, output_filename="parse_tree"):
         arco(nid, nodo_terminal("RBRACE", "}", "#455a64"))
         return nid
 
-    # ── Construir el grafo completo ───────────────────────────────────────────
+    #  Construir el grafo completo 
     visitar(ast_root)
 
     # Guardar PNG en la raíz del proyecto (carpeta que contiene al paquete beatscript)

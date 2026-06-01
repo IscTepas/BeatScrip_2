@@ -53,7 +53,7 @@ for i, test in enumerate(test_cases, 1):
         tokens, errors = tokenize(test['code'], collect_errors=True)
         
         if errors:
-            print(f"❌ Errores léxicos encontrados:")
+            print(f" Errores léxicos encontrados:")
             for err in errors:
                 print(f"   {err['msg']}")
         else:
@@ -61,14 +61,14 @@ for i, test in enumerate(test_cases, 1):
             ast = parser.parse()
             
             if parser.errors:
-                print(f"💡 Sugerencias encontradas:")
+                print(f" Sugerencias encontradas:")
                 for err in parser.errors:
                     print(f"\n{err}")
             else:
-                print("✅ Sin errores - código válido")
+                print(" Sin errores - código válido")
     
     except Exception as e:
-        print(f"⚠️  Error durante el parsing: {e}")
+        print(f"  Error durante el parsing: {e}")
 
 print("\n" + "=" * 70)
 print("Test completado")

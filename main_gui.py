@@ -14,9 +14,7 @@ ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("green")
 
 
-# ─────────────────────────────────────────────────────────────────────────────
 # Ventana principal
-# ─────────────────────────────────────────────────────────────────────────────
 class BeatScriptIDE(ctk.CTk):
     def __init__(self):
         super().__init__()
@@ -36,7 +34,7 @@ class BeatScriptIDE(ctk.CTk):
         self._build_console()
         self._cargar_ejemplo()
 
-    # ── Barra superior ────────────────────────────────────────────────────────
+    #  Barra superior 
     def _build_toolbar(self):
         toolbar = ctk.CTkFrame(self, height=52, corner_radius=0)
         toolbar.pack(side="top", fill="x")
@@ -50,7 +48,7 @@ class BeatScriptIDE(ctk.CTk):
 
         ctk.CTkButton(
             toolbar,
-            text="▶  Compilar y Reproducir",
+            text="Compilar y Reproducir",
             fg_color="#2e7d32",
             hover_color="#388e3c",
             font=ctk.CTkFont(size=13, weight="bold"),
@@ -60,7 +58,7 @@ class BeatScriptIDE(ctk.CTk):
 
         ctk.CTkButton(
             toolbar,
-            text="⏹  Detener",
+            text="Detener",
             fg_color="#b71c1c",
             hover_color="#c62828",
             font=ctk.CTkFont(size=13),
@@ -70,7 +68,7 @@ class BeatScriptIDE(ctk.CTk):
 
         ctk.CTkButton(
             toolbar,
-            text="📂  Abrir Archivo",
+            text="Abrir Archivo",
             fg_color="#1565c0",
             hover_color="#1976d2",
             font=ctk.CTkFont(size=13),
@@ -80,7 +78,7 @@ class BeatScriptIDE(ctk.CTk):
 
         ctk.CTkButton(
             toolbar,
-            text="💾  Guardar Archivo",
+            text="Guardar Archivo",
             fg_color="#4a148c",
             hover_color="#6a1b9a",
             font=ctk.CTkFont(size=13),
@@ -88,7 +86,17 @@ class BeatScriptIDE(ctk.CTk):
             command=self._guardar_archivo,
         ).pack(side="left", padx=(0, 10), pady=10)
 
-    # ── Área principal: editor + paneles derechos ─────────────────────────────
+        ctk.CTkButton(
+            toolbar,
+            text="Catalogo de Errores",
+            fg_color="#00695c",
+            hover_color="#00796b",
+            font=ctk.CTkFont(size=13),
+            width=185,
+            command=self._mostrar_documentacion_errores,
+        ).pack(side="left", padx=(0, 10), pady=10)
+
+    #  Área principal: editor + paneles derechos 
     def _build_main_area(self):
         main = ctk.CTkFrame(self, corner_radius=0, fg_color="transparent")
         main.pack(side="top", fill="both", expand=True, padx=8, pady=(8, 0))
@@ -100,7 +108,7 @@ class BeatScriptIDE(ctk.CTk):
         self._build_editor(main)
         self._build_right_panels(main)
 
-    # ── Editor de código (izquierda) con barra de estado ─────────────────────
+    #  Editor de código (izquierda) con barra de estado 
     _EDITOR_BG  = "#1e1e1e"
     _LINENUM_FG = "#4a5568"
 
@@ -116,7 +124,7 @@ class BeatScriptIDE(ctk.CTk):
             text_color="#90caf9",
         ).pack(anchor="w", padx=12, pady=(8, 2))
 
-        # ── Barra de estado (pack al fondo antes del editor) ──────────────────
+        # Barra de estado (pack al fondo antes del editor) 
         status_bar = ctk.CTkFrame(frame, height=26, corner_radius=0, fg_color="#1a1a2e")
         status_bar.pack(side="bottom", fill="x", padx=8, pady=(0, 8))
         status_bar.pack_propagate(False)
@@ -130,7 +138,7 @@ class BeatScriptIDE(ctk.CTk):
         )
         self.status_label.pack(side="left", padx=4, fill="x", expand=True)
 
-        # ── Contenedor editor: canvas de números │ sep │ textbox ────────────────
+        # ── Contenedor editor: canvas de números │ sep │ textbox 
         editor_container = tk.Frame(frame, bg=self._EDITOR_BG, bd=0)
         editor_container.pack(fill="both", expand=True, padx=8, pady=(0, 0))
 
@@ -176,7 +184,7 @@ class BeatScriptIDE(ctk.CTk):
             lambda e: inner.yview_scroll(int(-1 * (e.delta / 120)), "units")
         )
 
-        # ── Eventos ───────────────────────────────────────────────────────────
+        # Eventos 
         inner.bind("<KeyRelease>",    self._actualizar_estado)
         inner.bind("<ButtonRelease>", self._actualizar_estado)
         inner.bind("<KeyRelease>",    self._on_key, add="+")
@@ -186,7 +194,7 @@ class BeatScriptIDE(ctk.CTk):
         inner.bind("<<Redo>>",        lambda e: self.after_idle(self._actualizar_lineas), add="+")
         inner.bind("<ButtonRelease>", lambda e: self.after_idle(self._actualizar_lineas), add="+")
 
-        # ── Tags de color para resaltado de sintaxis ──────────────────────────
+        # Tags de color para resaltado de sintaxis 
         inner.tag_configure("hl_keyword",    foreground="#7986cb")
         inner.tag_configure("hl_note",       foreground="#66bb6a")
         inner.tag_configure("hl_duration",   foreground="#ffb74d")
@@ -196,7 +204,7 @@ class BeatScriptIDE(ctk.CTk):
         inner.tag_configure("hl_comment",    foreground="#546e7a")
         inner.tag_configure("hl_identifier", foreground="#cfd8dc")
 
-    # ── Panel derecho: tabla de tokens (50%) + árbol AST (50%) ───────────────
+    #  Panel derecho: tabla de tokens (50%) + árbol AST (50%) 
     def _build_right_panels(self, parent):
         frame = ctk.CTkFrame(parent, corner_radius=0, fg_color="transparent")
         frame.grid(row=0, column=1, sticky="nsew")
@@ -209,7 +217,7 @@ class BeatScriptIDE(ctk.CTk):
         self._build_token_panel(frame)  # Fila 0 — tabla léxica
         self._build_ast_panel(frame)    # Fila 1 — árbol sintáctico
 
-    # ── Panel de tokens (mitad superior del área derecha) ────────────────────
+    #  Panel de tokens (mitad superior del área derecha) 
     def _build_token_panel(self, parent):
         frame = ctk.CTkFrame(parent, corner_radius=8)
         frame.grid(row=0, column=0, sticky="nsew", pady=(0, 4))
@@ -229,7 +237,7 @@ class BeatScriptIDE(ctk.CTk):
         container.rowconfigure(0, weight=1)
         container.columnconfigure(0, weight=1)
 
-        # ── Estilo oscuro para el Treeview (ttk no hereda el tema de ctk) ────
+        #  Estilo oscuro para el Treeview (ttk no hereda el tema de ctk) 
         style = ttk.Style()
         style.theme_use("clam")
         style.configure(
@@ -254,7 +262,7 @@ class BeatScriptIDE(ctk.CTk):
             foreground=[("selected", "#ffffff")],
         )
 
-        # ── Treeview con columnas: #, TIPO, VALOR, LÍNEA, COL ────────────────
+        #  Treeview con columnas: #, TIPO, VALOR, LÍNEA, COL 
         self.token_tree = ttk.Treeview(
             container,
             columns=("num", "tipo", "valor", "linea", "col"),
@@ -293,14 +301,14 @@ class BeatScriptIDE(ctk.CTk):
         v_scroll.grid(row=0, column=1, sticky="ns")
         h_scroll.grid(row=1, column=0, sticky="ew")
 
-    # ── Panel AST (mitad inferior del área derecha) ───────────────────────────
+    #  Panel AST (mitad inferior del área derecha) 
     def _build_ast_panel(self, parent):
         frame = ctk.CTkFrame(parent, corner_radius=8)
         frame.grid(row=1, column=0, sticky="nsew", pady=(4, 0))
         frame.rowconfigure(1, weight=1)
         frame.columnconfigure(0, weight=1)
 
-        # ── Fila de encabezado: etiqueta + botón de árbol gráfico ────────────
+        #  Fila de encabezado: etiqueta + botón de árbol gráfico 
         header = ctk.CTkFrame(frame, fg_color="transparent")
         header.grid(row=0, column=0, sticky="ew", padx=8, pady=(8, 4))
         header.columnconfigure(0, weight=1)  # La etiqueta se expande
@@ -316,7 +324,7 @@ class BeatScriptIDE(ctk.CTk):
         # Botón que abre el árbol de derivación visual (PNG via Graphviz)
         ctk.CTkButton(
             header,
-            text="🌳 Ver Árbol de Derivación",
+            text="Ver Arbol de Derivacion",
             fg_color="#4527a0",
             hover_color="#512da8",
             font=ctk.CTkFont(size=11, weight="bold"),
@@ -337,7 +345,7 @@ class BeatScriptIDE(ctk.CTk):
         self.ast_textbox.insert("1.0", "— El AST se generará aquí (Etapa 2) —")
         self.ast_textbox.configure(state="disabled")
 
-    # ── Consola inferior ──────────────────────────────────────────────────────
+    #  Consola inferior 
     def _build_console(self):
         frame = ctk.CTkFrame(self, height=145, corner_radius=8)
         frame.pack(side="bottom", fill="x", padx=8, pady=8)
@@ -359,7 +367,7 @@ class BeatScriptIDE(ctk.CTk):
         )
         self.consola.pack(fill="both", expand=True, padx=8, pady=(0, 8))
 
-    # ── Números de línea (canvas) ─────────────────────────────────────────────
+    #  Números de línea (canvas) 
     def _actualizar_lineas(self):
         """
         Redibuja los números de línea en el canvas usando dlineinfo.
@@ -399,7 +407,7 @@ class BeatScriptIDE(ctk.CTk):
         """No se usa con el canvas — el chain en yscrollcommand llama a _actualizar_lineas."""
         pass
 
-    # ── Resaltado de sintaxis ─────────────────────────────────────────────────
+    #  Resaltado de sintaxis 
     # Mapa token-type → tag de color
     _TOKEN_TAG = {
         "TEMPO_KW":      "hl_keyword",
@@ -442,13 +450,13 @@ class BeatScriptIDE(ctk.CTk):
             inner.tag_remove(tag, "1.0", "end")
         inner.tag_remove("hl_comment", "1.0", "end")
 
-        # ── Colorear comentarios primero (regex, el lexer los descarta) ───────
+        #  Colorear comentarios primero (regex, el lexer los descarta) 
         for m in re.finditer(r"#[^\n]*", source):
             start = f"1.0 + {m.start()} chars"
             end   = f"1.0 + {m.end()} chars"
             inner.tag_add("hl_comment", start, end)
 
-        # ── Colorear tokens devueltos por el lexer ────────────────────────────
+        #  Colorear tokens devueltos por el lexer 
         try:
             tokens, _ = tokenize(source, collect_errors=True)
         except Exception:
@@ -463,7 +471,7 @@ class BeatScriptIDE(ctk.CTk):
             end     = f"1.0 + {tok.lexpos + tok_len} chars"
             inner.tag_add(tag, start, end)
 
-    # ── Barra de estado: actualizar posición del cursor ───────────────────────
+    #  Barra de estado: actualizar posición del cursor 
     def _actualizar_estado(self, event=None):
         """
         Actualiza la barra de estado inferior del editor con la posición
@@ -487,7 +495,7 @@ class BeatScriptIDE(ctk.CTk):
         except Exception:
             pass
 
-    # ── Mostrar árbol sintáctico visual ───────────────────────────────────────
+    #  Mostrar árbol sintáctico visual 
     def _mostrar_ast(self, ast):
         """Muestra el árbol sintáctico (AST) en formato visual de árbol."""
         self.ast_textbox.configure(state="normal")
@@ -503,7 +511,7 @@ class BeatScriptIDE(ctk.CTk):
             text=f"Árbol Sintáctico — Parser (Etapa 2 — {num_nodes} nodos)"
         )
 
-    # ── Abrir árbol de derivación visual (Graphviz → PNG) ────────────────────
+    #  Abrir árbol de derivación visual (Graphviz → PNG) 
     def _abrir_arbol_visual(self):
         """
         Genera el árbol de derivación en PNG usando Graphviz y lo abre
@@ -538,7 +546,7 @@ class BeatScriptIDE(ctk.CTk):
                     "https://graphviz.org/download/ y marca 'Add to PATH'."
                 )
 
-    # ── Lógica del botón Compilar ─────────────────────────────────────────────
+    # Lógica del botón Compilar 
     def _compilar(self):
         self._log("", clear=True)
 
@@ -547,7 +555,7 @@ class BeatScriptIDE(ctk.CTk):
             self._log("El editor está vacío. Escribe código BeatScript primero.")
             return
 
-        # ── ETAPA 1: ANÁLISIS LÉXICO ──────────────────────────────────────────
+        #  ETAPA 1: ANÁLISIS LÉXICO 
         self._log("Iniciando análisis léxico...")
 
         try:
@@ -581,10 +589,10 @@ class BeatScriptIDE(ctk.CTk):
 
         self._log(f"  Análisis léxico completado — {len(tokens)} tokens encontrados.")
 
-        # ── Llenar la tabla de tokens en el panel derecho ─────────────────────
+        #  Llenar la tabla de tokens en el panel derecho 
         self._llenar_tabla_tokens(tokens, source)
 
-        # ── ETAPA 2: ANÁLISIS SINTÁCTICO → Árbol Sintáctico (AST) ────────────
+        # ── ETAPA 2: ANÁLISIS SINTÁCTICO → Árbol Sintáctico (AST) 
         self._log("Iniciando análisis sintáctico...")
 
         try:
@@ -609,7 +617,7 @@ class BeatScriptIDE(ctk.CTk):
             self._log(f"Error durante el análisis sintáctico: {e}")
             return
 
-        # ── Generar y reproducir MIDI ─────────────────────────────────────────
+        # Generar y reproducir MIDI 
         try:
             from beatscript.midi_gen import tokens_to_midi
             midi_path = os.path.join(
@@ -622,7 +630,7 @@ class BeatScriptIDE(ctk.CTk):
         except Exception as e:
             self._log(f"  No se pudo reproducir el MIDI: {e}")
 
-    # ── Poblar la tabla de tokens del panel derecho ───────────────────────────
+    # Poblar la tabla de tokens del panel derecho 
     def _llenar_tabla_tokens(self, tokens: list, source: str):
         """
         Limpia la tabla de tokens y la rellena con los resultados del lexer.
@@ -720,7 +728,7 @@ class BeatScriptIDE(ctk.CTk):
             i += 1
         return avisos
 
-    # ── Abrir archivo .bs / .txt ──────────────────────────────────────────────
+    # Abrir archivo .bs / .txt 
     def _abrir_archivo(self):
         """Abre un diálogo para seleccionar un archivo y carga su contenido en el editor."""
         ruta = filedialog.askopenfilename(
@@ -747,7 +755,7 @@ class BeatScriptIDE(ctk.CTk):
         except Exception as e:
             self._log(f"Error al abrir el archivo: {e}")
 
-    # ── Guardar archivo .bs / .txt ────────────────────────────────────────────
+    #  Guardar archivo .bs / .txt 
     def _guardar_archivo(self):
         """Abre un diálogo para guardar el contenido del editor en un archivo."""
         ruta = filedialog.asksaveasfilename(
@@ -770,6 +778,159 @@ class BeatScriptIDE(ctk.CTk):
             self._log(f"Archivo guardado: {ruta}")
         except Exception as e:
             self._log(f"Error al guardar el archivo: {e}")
+
+    # ── Catalogo de errores ───────────────────────────────────────────────────
+    def _mostrar_documentacion_errores(self):
+        """Ventana con documentacion tecnica de errores en formato de tarjetas."""
+
+        ventana = ctk.CTkToplevel(self)
+        ventana.title("Catalogo de Errores - BeatScript")
+        ventana.geometry("720x600")
+        ventana.resizable(True, True)
+        ventana.grab_set()
+
+        self.update_idletasks()
+        x = self.winfo_x() + (self.winfo_width()  - 720) // 2
+        y = self.winfo_y() + (self.winfo_height() - 600) // 2
+        ventana.geometry(f"720x600+{x}+{y}")
+
+        # ── Titulo principal ──────────────────────────────────────────────────
+        ctk.CTkLabel(
+            ventana,
+            text="Documentacion de Errores - BeatScript v1.0",
+            font=ctk.CTkFont(size=16, weight="bold"),
+            text_color="#90caf9",
+        ).pack(anchor="w", padx=24, pady=(18, 2))
+
+        ctk.CTkLabel(
+            ventana,
+            text="Clasificacion: Validacion  |  Lexico  |  Sintactico",
+            font=ctk.CTkFont(size=11),
+            text_color="#546e7a",
+        ).pack(anchor="w", padx=24, pady=(0, 12))
+
+        # ── Area scrollable con tarjetas ──────────────────────────────────────
+        scroll = ctk.CTkScrollableFrame(ventana, fg_color="transparent")
+        scroll.pack(fill="both", expand=True, padx=16, pady=(0, 8))
+
+        # ── Helpers ───────────────────────────────────────────────────────────
+        def seccion(texto):
+            ctk.CTkLabel(
+                scroll,
+                text=texto,
+                font=ctk.CTkFont(size=13, weight="bold"),
+                text_color="#80cbc4",
+                anchor="w",
+            ).pack(fill="x", padx=4, pady=(14, 4))
+
+        def tarjeta(codigo, titulo, causa, resolucion):
+            card = ctk.CTkFrame(scroll, corner_radius=10, fg_color="#1e2a2a")
+            card.pack(fill="x", padx=4, pady=5)
+
+            # Codigo + Titulo
+            ctk.CTkLabel(
+                card,
+                text=f"{codigo}  {titulo}",
+                font=ctk.CTkFont(size=12, weight="bold"),
+                text_color="#e0e0e0",
+                anchor="w",
+            ).pack(anchor="w", padx=14, pady=(10, 4))
+
+            sep = ctk.CTkFrame(card, height=1, fg_color="#2e3e3e")
+            sep.pack(fill="x", padx=14, pady=(0, 6))
+
+            # Causa
+            fila_c = ctk.CTkFrame(card, fg_color="transparent")
+            fila_c.pack(fill="x", padx=14, pady=(0, 2))
+            ctk.CTkLabel(
+                fila_c,
+                text="Causa",
+                font=ctk.CTkFont(size=11, weight="bold"),
+                text_color="#ef9a9a",
+                width=80,
+                anchor="w",
+            ).pack(side="left", anchor="n")
+            ctk.CTkLabel(
+                fila_c,
+                text=causa,
+                font=ctk.CTkFont(size=11),
+                text_color="#b0bec5",
+                wraplength=520,
+                justify="left",
+                anchor="w",
+            ).pack(side="left", fill="x", expand=True)
+
+            # Resolucion
+            fila_r = ctk.CTkFrame(card, fg_color="transparent")
+            fila_r.pack(fill="x", padx=14, pady=(2, 10))
+            ctk.CTkLabel(
+                fila_r,
+                text="Resolucion",
+                font=ctk.CTkFont(size=11, weight="bold"),
+                text_color="#a5d6a7",
+                width=80,
+                anchor="w",
+            ).pack(side="left", anchor="n")
+            ctk.CTkLabel(
+                fila_r,
+                text=resolucion,
+                font=ctk.CTkFont(size=11),
+                text_color="#b0bec5",
+                wraplength=520,
+                justify="left",
+                anchor="w",
+            ).pack(side="left", fill="x", expand=True)
+
+        # ── Seccion 1: Validacion ─────────────────────────────────────────────
+        seccion("1. Errores de Validacion Logica  (Warnings)")
+
+        tarjeta(
+            "ERR-VAL-01", "Token de Identificador Corrupto",
+            causa="El lexer genero un identificador que inicia con una letra valida de nota (A-G) pero contiene sufijos invalidos. Ej: E44, Er21",
+            resolucion="Verificar la sintaxis de la nota. El formato estricto es [A-G][#b]?[0-9]",
+        )
+        tarjeta(
+            "ERR-VAL-02", "Tipo de Dato Duracion Desconocido",
+            causa="Se esperaba un valor de la enumeracion de duraciones (negra, blanca, etc.) pero se recibio un string no reconocido. Ej: blancaa, negra1",
+            resolucion="Usar: negra | blanca | corchea | redonda | semicorchea | fusa | semifusa",
+        )
+
+        # ── Seccion 2: Lexico ─────────────────────────────────────────────────
+        seccion("2. Errores Lexicos  (Lexical Errors)")
+
+        tarjeta(
+            "ERR-LEX-01", "Caracter Ilegal Detectado",
+            causa="El automata finito detecto un simbolo que no pertenece al alfabeto de BeatScript. Ej: @tempo, dollar-track, C4!",
+            resolucion="Eliminar el caracter no valido. El analizador lo saltara automaticamente pero marcara el error en consola.",
+        )
+
+        # ── Seccion 3: Sintactico ─────────────────────────────────────────────
+        seccion("3. Errores Sintacticos  (Parsing Errors)")
+
+        tarjeta(
+            "ERR-SIN-01", "Violacion de Estructura de Evento",
+            causa="Un bloque (track) contiene una secuencia de tokens que no forma un evento musical valido. Ej: NUMBER en lugar de DURATION tras una nota.",
+            resolucion="Asegurar que cada instruccion cumpla la regla de produccion: evento -> NOTE DURATION",
+        )
+        tarjeta(
+            "ERR-SIN-02", "EOF Inesperado / Bloque No Cerrado",
+            causa="El compilador llego al final del archivo y el stack del parser detecto que falta un delimitador }.",
+            resolucion="Cerrar todos los bloques track y repeat que fueron abiertos con {.",
+        )
+        tarjeta(
+            "ERR-SIN-03", "Comando Global No Reconocido",
+            causa="Fuera de los bloques se uso una palabra clave no definida como declaracion principal. Ej: trackk en lugar de track.",
+            resolucion="El compilador entrara en Modo Panico y descartara tokens hasta encontrar una palabra reservada valida. Corregir la palabra clave.",
+        )
+
+        ctk.CTkButton(
+            ventana,
+            text="Cerrar",
+            fg_color="#37474f",
+            hover_color="#455a64",
+            width=110,
+            command=ventana.destroy,
+        ).pack(pady=(0, 12))
 
     def _detener(self):
         pygame.mixer.music.stop()
