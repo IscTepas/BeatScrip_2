@@ -1,6 +1,20 @@
-# main_gui.py — BeatScript IDE
-# Ventana principal del compilador BeatScript
-# Framework: customtkinter (modo oscuro) + tkinter.ttk (tablas)
+"""
+BeatScript IDE — Interfaz Gráfica Principal
+============================================
+Ventana principal del compilador BeatScript. Orquesta el pipeline completo:
+Etapa 1 (Lexer) → Validación post-léxica → Etapa 2 (Parser) → MIDI → Audio.
+
+Componentes visuales:
+    Toolbar     → botones de acción (Compilar, Detener, Abrir, Guardar, Catálogo)
+    Editor      → área de escritura de código BeatScript con resaltado de sintaxis
+                  en tiempo real y números de línea sincronizados
+    Token panel → tabla que muestra los tokens producidos por el lexer (Etapa 1)
+    AST panel   → árbol sintáctico en texto producido por el parser (Etapa 2)
+    Consola     → salida de mensajes del compilador (errores, estado, reproducci
+
+Framework: customtkinter (tema oscuro) + tkinter.ttk (tablas Treeview)
+Audio:      pygame.mixer para reproducir el archivo MIDI generado
+"""
 
 import tkinter as tk
 from tkinter import ttk, filedialog
@@ -14,15 +28,33 @@ ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("green")
 
 
-# Ventana principal
 class BeatScriptIDE(ctk.CTk):
+    """
+    Ventana principal del IDE de BeatScript.
+
+    Hereda de CTk (customtkinter) para obtener el tema oscuro automático.
+    Construye la interfaz completa en __init__ y expone métodos privados
+    (_build_*) para cada sección visual.
+
+    Atributos relevantes:
+        current_ast (Program | None): AST del último compilado sin errores.
+                                      Necesario para generar el árbol PNG con Graphviz.
+        editor (CTkTextbox):          Widget principal de escritura de código.
+        token_tree (ttk.Treeview):    Tabla de tokens del lexer.
+        ast_textbox (CTkTextbox):     Panel de texto del árbol AST.
+        consola (CTkTextbox):         Salida de mensajes del compilador.
+        status_label (CTkLabel):      Barra de estado con línea/columna.
+        _line_canvas (tk.Canvas):     Canvas para los números de línea del editor.
+    """
+
     def __init__(self):
         super().__init__()
 
         self.title("BeatScript IDE")
         self.geometry("1200x800")
-        self.after(0, lambda: self.state("zoomed"))
+        self.after(0, lambda: self.state("zoomed"))   # Maximizar al abrir
 
+        # Inicializar pygame con parámetros de baja latencia para audio MIDI
         pygame.mixer.pre_init(44100, -16, 2, 512)
         pygame.mixer.init()
 
@@ -34,7 +66,7 @@ class BeatScriptIDE(ctk.CTk):
         self._build_console()
         self._cargar_ejemplo()
 
-    #  Barra superior 
+    # ── Barra de herramientas superior ───────────────────────────────────────
     def _build_toolbar(self):
         toolbar = ctk.CTkFrame(self, height=52, corner_radius=0)
         toolbar.pack(side="top", fill="x")
@@ -96,23 +128,36 @@ class BeatScriptIDE(ctk.CTk):
             command=self._mostrar_documentacion_errores,
         ).pack(side="left", padx=(0, 10), pady=10)
 
-    #  Área principal: editor + paneles derechos 
+    # ── Área principal: editor + paneles derechos ────────────────────────────
     def _build_main_area(self):
+        """
+        Crea el contenedor principal dividido en dos columnas:
+        - Columna 0 (weight=5): editor de código BeatScript
+        - Columna 1 (weight=6): panel de tokens (arriba) + AST (abajo)
+        """
         main = ctk.CTkFrame(self, corner_radius=0, fg_color="transparent")
         main.pack(side="top", fill="both", expand=True, padx=8, pady=(8, 0))
 
-        main.columnconfigure(0, weight=5)  # Editor de código
-        main.columnconfigure(1, weight=6)  # Paneles derecho
+        main.columnconfigure(0, weight=5)
+        main.columnconfigure(1, weight=6)
         main.rowconfigure(0, weight=1)
 
         self._build_editor(main)
         self._build_right_panels(main)
 
-    #  Editor de código (izquierda) con barra de estado 
-    _EDITOR_BG  = "#1e1e1e"
-    _LINENUM_FG = "#4a5568"
+    # ── Editor de código con números de línea y barra de estado ──────────────
+    _EDITOR_BG  = "#1e1e1e"   # Fondo del editor (igual al tema oscuro del IDE)
+    _LINENUM_FG = "#4a5568"   # Color de los números de línea
 
     def _build_editor(self, parent):
+        """
+        Construye el editor de código BeatScript con tres subcomponentes:
+        1. Canvas izquierdo: números de línea dibujados con dlineinfo para
+           alineación pixel-perfecta sin desfase al hacer scroll.
+        2. CTkTextbox central: área de escritura principal con tags de color
+           para el resaltado de sintaxis en tiempo real.
+        3. CTkFrame inferior: barra de estado con posición del cursor.
+        """
         frame = ctk.CTkFrame(parent, corner_radius=8)
         frame.grid(row=0, column=0, sticky="nsew", padx=(0, 5))
 
@@ -407,8 +452,9 @@ class BeatScriptIDE(ctk.CTk):
         """No se usa con el canvas — el chain en yscrollcommand llama a _actualizar_lineas."""
         pass
 
-    #  Resaltado de sintaxis 
-    # Mapa token-type → tag de color
+    # ── Resaltado de sintaxis en tiempo real ─────────────────────────────────
+    # Mapeo de tipo de token → tag de color definido en _build_editor().
+    # Cada tag tiene un color asignado con inner.tag_configure().
     _TOKEN_TAG = {
         "TEMPO_KW":      "hl_keyword",
         "INSTRUMENT_KW": "hl_keyword",
@@ -427,14 +473,27 @@ class BeatScriptIDE(ctk.CTk):
     }
 
     def _on_key(self, event=None):
-        """Dispara resaltado y actualización de líneas al escribir."""
+        """
+        Handler de KeyRelease: dispara el resaltado y actualiza los números
+        de línea cada vez que el usuario escribe o modifica el código.
+        Usa after_idle para las líneas para no bloquear la respuesta del teclado.
+        """
         self._aplicar_resaltado()
         self.after_idle(self._actualizar_lineas)
 
     def _aplicar_resaltado(self):
         """
-        Recorre el código fuente con el lexer y aplica tags de color
-        al widget tk.Text interno del editor.
+        Aplica resaltado de sintaxis en tiempo real al editor.
+
+        Funciona en dos pasos:
+        1. Colorea comentarios con regex directa (re.finditer) porque el lexer
+           los descarta y no los incluye en la lista de tokens.
+        2. Llama al lexer formal (tokenize) para obtener los tokens reales,
+           y aplica el tag de color correspondiente a cada uno usando tok.lexpos
+           como índice absoluto de posición en el texto.
+
+        Silencia cualquier excepción para no interrumpir la escritura del usuario
+        cuando el código está incompleto (ej: bloque sin cerrar).
         """
         import re
         try:
@@ -445,18 +504,18 @@ class BeatScriptIDE(ctk.CTk):
         inner  = self.editor._textbox
         source = inner.get("1.0", "end-1c")
 
-        # Limpiar todos los tags de resaltado anteriores
+        # Limpiar todos los tags anteriores antes de redibujar
         for tag in self._TOKEN_TAG.values():
             inner.tag_remove(tag, "1.0", "end")
         inner.tag_remove("hl_comment", "1.0", "end")
 
-        #  Colorear comentarios primero (regex, el lexer los descarta) 
+        # Paso 1: colorear comentarios con regex (el lexer los descarta)
         for m in re.finditer(r"#[^\n]*", source):
             start = f"1.0 + {m.start()} chars"
             end   = f"1.0 + {m.end()} chars"
             inner.tag_add("hl_comment", start, end)
 
-        #  Colorear tokens devueltos por el lexer 
+        # Paso 2: colorear tokens devueltos por el lexer formal
         try:
             tokens, _ = tokenize(source, collect_errors=True)
         except Exception:
@@ -495,9 +554,12 @@ class BeatScriptIDE(ctk.CTk):
         except Exception:
             pass
 
-    #  Mostrar árbol sintáctico visual 
     def _mostrar_ast(self, ast):
-        """Muestra el árbol sintáctico (AST) en formato visual de árbol."""
+        """
+        Muestra el AST en el panel de texto derecho usando ast_to_tree_string().
+        Solo se llama cuando la compilación es exitosa (sin errores).
+        Actualiza la etiqueta del panel con el conteo de nodos del árbol.
+        """
         self.ast_textbox.configure(state="normal")
         self.ast_textbox.delete("1.0", "end")
 
@@ -546,8 +608,25 @@ class BeatScriptIDE(ctk.CTk):
                     "https://graphviz.org/download/ y marca 'Add to PATH'."
                 )
 
-    # Lógica del botón Compilar 
     def _compilar(self):
+        """
+        Ejecuta el pipeline completo de compilación BeatScript al presionar
+        el botón 'Compilar y Reproducir'.
+
+        Pipeline:
+            1. Etapa 1 — Análisis léxico: tokenize() escanea todo el código y
+               acumula errores léxicos sin detenerse. Siempre produce tokens.
+            2. Validación post-léxica: _validar_tokens_extra() detecta patrones
+               semánticamente inválidos que el lexer acepta (ej: nota con doble
+               octava, instrumento no reconocido, volumen fuera de rango).
+            3. Tabla de tokens: se llena inmediatamente con los tokens producidos.
+            4. Etapa 2 — Análisis sintáctico: BeatScriptParser.parse() verifica
+               la gramática y acumula errores sintácticos con Modo Pánico.
+            5. Consolidación: todos los errores (léxicos + validación + sintácticos)
+               se agrupan en total_errores. Si hay alguno, se muestran todos y
+               se detiene antes de generar el MIDI.
+            6. Generación MIDI + reproducción: solo si total_errores está vacío.
+        """
         self._log("", clear=True)
 
         source = self.editor.get("1.0", "end-1c").strip()
@@ -555,70 +634,66 @@ class BeatScriptIDE(ctk.CTk):
             self._log("El editor está vacío. Escribe código BeatScript primero.")
             return
 
-        #  ETAPA 1: ANÁLISIS LÉXICO 
+        # ── ETAPA 1: ANÁLISIS LÉXICO ─────────────────────────────────────────
         self._log("Iniciando análisis léxico...")
 
         try:
             from beatscript.lexer import tokenize
-            tokens, errors = tokenize(source, collect_errors=True)
+            tokens, errores_lexicos = tokenize(source, collect_errors=True)
         except ImportError:
             self._log("beatscript.lexer no encontrado — usando datos de prueba")
-            tokens, errors = self._mock_tokens(), []
+            tokens, errores_lexicos = self._mock_tokens(), []
         except Exception as e:
             self._log(f"Error durante el análisis léxico: {e}")
             return
 
-        # Error léxico → mostrar y detener
-        if errors:
-            for err in errors:
-                self._log(f"  {err['msg']}")
-            self._log(
-                f"\nCompilación detenida — {len(errors)} error(es) léxico(s) encontrado(s)."
-            )
-            return
-
-        # Validación post-léxica
-        avisos = self._validar_tokens_extra(tokens, source)
-        if avisos:
-            for av in avisos:
-                self._log(f"  {av}")
-            self._log(
-                f"\n  Compilación detenida — {len(avisos)} error(es) de validación encontrado(s)."
-            )
-            return
-
         self._log(f"  Análisis léxico completado — {len(tokens)} tokens encontrados.")
 
-        #  Llenar la tabla de tokens en el panel derecho 
+        # Validación post-léxica: detecta patrones inválidos entre etapas
+        # No detiene el flujo, solo acumula mensajes en avisos_validacion
+        avisos_validacion = self._validar_tokens_extra(tokens, source)
+
+        # Llenar tabla de tokens con los resultados del lexer (siempre)
         self._llenar_tabla_tokens(tokens, source)
 
-        # ── ETAPA 2: ANÁLISIS SINTÁCTICO → Árbol Sintáctico (AST) 
+        # ── ETAPA 2: ANÁLISIS SINTÁCTICO ─────────────────────────────────────
         self._log("Iniciando análisis sintáctico...")
 
         try:
-            # Pasar el código fuente para que el parser calcule columnas en errores
             parser = BeatScriptParser(tokens, source)
             ast = parser.parse()
-
-            if parser.errors:
-                for err in parser.errors:
-                    self._log(f"  {err}")
-                self._log(
-                    f"\nCompilación detenida — {len(parser.errors)} "
-                    f"error(es) sintáctico(s) encontrado(s)."
-                )
-                return
-
-            self._log("  Análisis sintáctico completado.")
-            self.current_ast = ast   # Guardar para el botón de árbol gráfico
-            self._mostrar_ast(ast)
-
+            errores_sintacticos = parser.errors
         except Exception as e:
             self._log(f"Error durante el análisis sintáctico: {e}")
             return
 
+        self._log("  Análisis sintáctico completado.")
 
-        # Generar y reproducir MIDI
+        # ── CONSOLIDAR TODOS LOS ERRORES ─────────────────────────────────────
+        # Se agrupan en orden: léxicos → validación → sintácticos
+        total_errores = []
+
+        for err in errores_lexicos:
+            total_errores.append(err["msg"])     # Extraer el string del dict
+
+        for av in avisos_validacion:
+            total_errores.append(av)
+
+        for err in errores_sintacticos:
+            total_errores.append(err)
+
+        if total_errores:
+            for msg in total_errores:
+                self._log(f"  {msg}")
+            self._log(
+                f"\nCompilación detenida — {len(total_errores)} error(es) en total encontrados."
+            )
+            return
+
+        # ── SIN ERRORES: mostrar AST y generar MIDI ──────────────────────────
+        self.current_ast = ast
+        self._mostrar_ast(ast)
+
         try:
             from beatscript.midi_gen import tokens_to_midi
             midi_path = os.path.join(
@@ -652,7 +727,31 @@ class BeatScriptIDE(ctk.CTk):
             )
 
     def _validar_tokens_extra(self, tokens: list, source: str) -> list:
-        """Detecta patrones sospechosos que el lexer acepta pero son inválidos semánticamente."""
+        """
+        Validación post-léxica: detecta patrones inválidos que el lexer acepta
+        sintácticamente pero que representan errores semánticos o de uso.
+
+        Se ejecuta entre la Etapa 1 (Lexer) y la Etapa 2 (Parser), recorriendo
+        la lista de tokens y verificando combinaciones problemáticas de tokens
+        consecutivos. No modifica los tokens; solo acumula mensajes de error.
+
+        Patrones que detecta:
+            - instrument IDENTIFIER   → instrumento no reconocido en BeatScript
+            - tempo no-NUMBER         → tempo seguido de algo que no es número
+            - volume no-NUMBER        → volume con valor no numérico
+            - volume NUMBER fuera     → volumen fuera del rango MIDI (0-127)
+            - NOTE/REST seguido de NUMBER → nota con octava de más de un dígito (ej: E44)
+            - NOTE/REST seguido de IDENTIFIER → duración inválida (ej: negraa)
+            - IDENTIFIER con forma de nota → nota mal formada (ej: C4x, D##3)
+
+        Args:
+            tokens: Lista de LexToken producida por el lexer.
+            source: Código fuente original para calcular columnas.
+
+        Returns:
+            Lista de strings con mensajes de error [ERROR LÉXICO] formateados.
+            Lista vacía si no se detectaron problemas.
+        """
         import re
         avisos = []
         i = 0
@@ -664,7 +763,7 @@ class BeatScriptIDE(ctk.CTk):
                 if siguiente and siguiente.type == "IDENTIFIER":
                     col = self._calcular_columna(source, siguiente)
                     avisos.append(
-                        f"[AVISO] Línea {siguiente.lineno}, Col {col}: "
+                        f"[ERROR LÉXICO] Línea {siguiente.lineno}, Col {col}: "
                         f"'{siguiente.value}' no es un instrumento reconocido. "
                         f"Usa: piano, guitar, violin, flute, drums, bass, trumpet..."
                     )
@@ -674,7 +773,7 @@ class BeatScriptIDE(ctk.CTk):
                 if siguiente and siguiente.type != "NUMBER":
                     col = self._calcular_columna(source, siguiente)
                     avisos.append(
-                        f"[AVISO] Línea {siguiente.lineno}, Col {col}: "
+                        f"[ERROR LÉXICO] Línea {siguiente.lineno}, Col {col}: "
                         f"se esperaba un número después de 'tempo', "
                         f"se encontró '{siguiente.value}'"
                     )
@@ -684,7 +783,7 @@ class BeatScriptIDE(ctk.CTk):
                 if siguiente and siguiente.type != "NUMBER":
                     col = self._calcular_columna(source, siguiente)
                     avisos.append(
-                        f"[AVISO] Línea {siguiente.lineno}, Col {col}: "
+                        f"[ERROR LÉXICO] Línea {siguiente.lineno}, Col {col}: "
                         f"'volume' requiere un número entre 0 y 127, "
                         f"se encontró '{siguiente.value}'"
                     )
@@ -692,7 +791,7 @@ class BeatScriptIDE(ctk.CTk):
                     if not (0 <= siguiente.value <= 127):
                         col = self._calcular_columna(source, siguiente)
                         avisos.append(
-                            f"[AVISO] Línea {siguiente.lineno}, Col {col}: "
+                            f"[ERROR LÉXICO] Línea {siguiente.lineno}, Col {col}: "
                             f"volumen {siguiente.value} fuera de rango — "
                             f"usa un valor entre 0 y 127"
                         )
@@ -703,14 +802,14 @@ class BeatScriptIDE(ctk.CTk):
                     # Caso E44, E44444, etc. — el lexer parte NOTE(E4) + NUMBER(4...)
                     col = self._calcular_columna(source, tok)
                     avisos.append(
-                        f"[AVISO] Línea {tok.lineno}, Col {col}: "
+                        f"[ERROR LÉXICO] Línea {tok.lineno}, Col {col}: "
                         f"'{tok.value}{siguiente.value}' parece una nota inválida — "
                         f"el número de octava debe ser un solo dígito: ej: E4, C4, D#3"
                     )
                 elif siguiente and siguiente.type == "IDENTIFIER":
                     col = self._calcular_columna(source, siguiente)
                     avisos.append(
-                        f"[AVISO] Línea {siguiente.lineno}, Col {col}: "
+                        f"[ERROR LÉXICO] Línea {siguiente.lineno}, Col {col}: "
                         f"'{siguiente.value}' no es una duración válida — usa: "
                         f"negra, blanca, corchea, redonda, semicorchea, fusa, semifusa"
                     )
@@ -721,7 +820,7 @@ class BeatScriptIDE(ctk.CTk):
                 if re.match(r"^[A-Ga-g].+\d$", val):
                     col = self._calcular_columna(source, tok)
                     avisos.append(
-                        f"[AVISO] Línea {tok.lineno}, Col {col}: "
+                        f"[ERROR LÉXICO] Línea {tok.lineno}, Col {col}: "
                         f"'{val}' parece una nota inválida — "
                         f"formato: [A-G][#b]?[octava], ej: C4, D#3, Eb5"
                     )
@@ -729,9 +828,12 @@ class BeatScriptIDE(ctk.CTk):
             i += 1
         return avisos
 
-    # Abrir archivo .bs / .txt 
     def _abrir_archivo(self):
-        """Abre un diálogo para seleccionar un archivo y carga su contenido en el editor."""
+        """
+        Abre un diálogo de selección de archivo y carga su contenido en el editor.
+        Acepta archivos .bs (BeatScript), .txt y cualquier otro formato.
+        Actualiza el título de la ventana con el nombre del archivo cargado.
+        """
         ruta = filedialog.askopenfilename(
             title="Abrir archivo BeatScript",
             filetypes=[
@@ -756,9 +858,12 @@ class BeatScriptIDE(ctk.CTk):
         except Exception as e:
             self._log(f"Error al abrir el archivo: {e}")
 
-    #  Guardar archivo .bs / .txt 
     def _guardar_archivo(self):
-        """Abre un diálogo para guardar el contenido del editor en un archivo."""
+        """
+        Abre un diálogo de guardado y escribe el contenido del editor en disco.
+        La extensión por defecto es .bs (BeatScript). Actualiza el título de
+        la ventana con el nombre del archivo guardado.
+        """
         ruta = filedialog.asksaveasfilename(
             title="Guardar archivo BeatScript",
             defaultextension=".bs",
@@ -780,9 +885,18 @@ class BeatScriptIDE(ctk.CTk):
         except Exception as e:
             self._log(f"Error al guardar el archivo: {e}")
 
-    # ── Catalogo de errores ───────────────────────────────────────────────────
     def _mostrar_documentacion_errores(self):
-        """Ventana con documentacion tecnica de errores en formato de tarjetas."""
+        """
+        Abre una ventana modal con el catálogo completo de errores de BeatScript.
+
+        La ventana contiene tarjetas organizadas en 3 secciones:
+            1. Errores de validación lógica  (ERR-VAL): patrones post-léxicos
+            2. Errores léxicos               (ERR-LEX): caracteres inválidos
+            3. Errores sintácticos           (ERR-SIN): violaciones gramaticales
+
+        Cada tarjeta muestra: código del error, título, causa y resolución.
+        Se centra automáticamente sobre la ventana principal.
+        """
 
         ventana = ctk.CTkToplevel(self)
         ventana.title("Catalogo de Errores - BeatScript")
@@ -934,16 +1048,25 @@ class BeatScriptIDE(ctk.CTk):
         ).pack(pady=(0, 12))
 
     def _detener(self):
+        """Detiene la reproducción de audio MIDI en curso."""
         pygame.mixer.music.stop()
         self._log("Reproducción detenida.")
 
     def _calcular_columna(self, source: str, token) -> int:
-        """Calcula la columna (1-indexada) de un token dentro de su línea."""
+        """
+        Calcula la columna 1-indexada de un token dentro de su línea.
+        Usa el mismo algoritmo que _find_column() del lexer para consistencia
+        en los mensajes de error de la validación post-léxica.
+        """
         line_start = source.rfind("\n", 0, token.lexpos) + 1
         return token.lexpos - line_start + 1
 
-    # ── Mock de tokens para demostración (sin lexer instalado) ───────────────
     def _mock_tokens(self) -> list:
+        """
+        Genera una lista de tokens falsos para demostración cuando el módulo
+        beatscript.lexer no está disponible (ImportError). Permite que el IDE
+        arranque y muestre la interfaz aunque el paquete no esté instalado.
+        """
         class FakeTok:
             def __init__(self, t, v, l, p):
                 self.type = t
@@ -966,17 +1089,26 @@ class BeatScriptIDE(ctk.CTk):
             FakeTok("RBRACE",        "}",           8, 65),
         ]
 
-    # ── Escribir en la consola ────────────────────────────────────────────────
     def _log(self, mensaje: str, clear: bool = False):
+        """
+        Escribe un mensaje en la consola del IDE.
+
+        La consola está en modo 'disabled' la mayor parte del tiempo para
+        evitar edición por el usuario. Este método la habilita temporalmente,
+        inserta el mensaje y la vuelve a deshabilitar.
+
+        Args:
+            mensaje: Texto a mostrar. Si es cadena vacía, no inserta nada.
+            clear:   Si True, limpia todo el contenido previo antes de escribir.
+        """
         self.consola.configure(state="normal")
         if clear:
             self.consola.delete("1.0", "end")
         if mensaje:
             self.consola.insert("end", mensaje + "\n")
-        self.consola.see("end")
+        self.consola.see("end")   # Auto-scroll al final
         self.consola.configure(state="disabled")
 
-    # ── Código de ejemplo al iniciar ──────────────────────────────────────────
     def _cargar_ejemplo(self):
         ejemplo = """\
 # Oda a la Alegría — BeatScript
