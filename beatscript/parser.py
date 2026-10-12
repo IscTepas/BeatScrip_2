@@ -21,6 +21,7 @@ Gramática (Notación EBNF):
 """
 
 import os as _os
+import re
 import difflib
 from beatscript.lexer import RESERVED
 
@@ -55,7 +56,15 @@ def _get_suggestions_for_word(word, keywords_dict=None, cutoff=0.6, max_suggesti
 # 1. CLASES DE NODOS DEL AST
 
 class ASTNode:
-    """Clase base para todos los nodos del árbol sintáctico."""
+    """Clase base para todos los nodos del árbol sintáctico.
+
+    Guarda su posición en el código fuente (la usa el análisis semántico):
+        line, col         → posición del primer token del nodo (la palabra clave)
+        arg_line, arg_col → posición del argumento principal (el número de tempo,
+                            el nombre del track, etc.). None si no aplica.
+    """
+    line = col = None
+    arg_line = arg_col = None
     def __repr__(self):
         return f"<{self.__class__.__name__}>"
 
@@ -181,6 +190,14 @@ class BeatScriptParser:
             return "?"
         line_start = self.source_code.rfind("\n", 0, token.lexpos) + 1
         return token.lexpos - line_start + 1
+
+    def _at(self, node, token, arg_token=None):
+        """Guarda en el nodo la posición (línea/columna) de sus tokens."""
+        if token is not None:
+            node.line, node.col = token.lineno, self._get_column(token)
+        if arg_token is not None:
+            node.arg_line, node.arg_col = arg_token.lineno, self._get_column(arg_token)
+        return node
 
     # MÉTODOS DE NAVEGACIÓN
 
@@ -358,34 +375,34 @@ class BeatScriptParser:
 
     def _parse_tempo(self):
         """Parsea: tempo <número>"""
-        self._consume("TEMPO_KW")
+        kw = self._consume("TEMPO_KW")
         num_token = self._consume("NUMBER", "Se esperaba un número después de 'tempo'")
 
         if num_token:
-            return Tempo(num_token.value)
+            return self._at(Tempo(num_token.value), kw, num_token)
         return None
 
     def _parse_volume(self):
         """Parsea: volume <número>"""
-        self._consume("VOLUME_KW")
+        kw = self._consume("VOLUME_KW")
         num_token = self._consume("NUMBER", "Se esperaba un número después de 'volume'")
 
         if num_token:
-            return Volume(num_token.value)
+            return self._at(Volume(num_token.value), kw, num_token)
         return None
 
     def _parse_instrument(self):
         """Parsea: instrument <nombre_instrumento>"""
-        self._consume("INSTRUMENT_KW")
+        kw = self._consume("INSTRUMENT_KW")
         instr_token = self._consume("INSTR_NAME", "Se esperaba un nombre de instrumento")
 
         if instr_token:
-            return Instrument(instr_token.value)
+            return self._at(Instrument(instr_token.value), kw, instr_token)
         return None
 
     def _parse_track(self):
         """Parsea: track <identificador> { <eventos> }"""
-        self._consume("TRACK_KW")
+        kw = self._consume("TRACK_KW")
         name_token = self._consume("IDENTIFIER", "Se esperaba un nombre de track")
         self._consume("LBRACE", "Se esperaba '{'")
 
@@ -398,63 +415,84 @@ class BeatScriptParser:
         self._consume("RBRACE", "Se esperaba '}'")
 
         if name_token:
-            return Track(name_token.value, events)
+            return self._at(Track(name_token.value, events), kw, name_token)
         return None
 
     def _parse_chord(self):
         """
-        Parsea: chord { NOTE+ DURATION }
+        Parsea: chord { (NOTE | DURATION)* }
 
-        Un acorde es un bloque que contiene una o más notas seguidas
-        de una única duración compartida por todas ellas.
+        El parser solo comprueba la ESTRUCTURA (llaves y tokens permitidos).
+        Que el acorde tenga >= 1 nota, una sola duración y que esta vaya al
+        final lo valida el análisis semántico (regla S6), por eso aquí se
+        guardan las posiciones de cada token dentro del nodo Chord.
 
         Ejemplo:
             chord { C4 E4 G4 blanca }
         """
-        kw_token = self._current_token()  # Guardar token 'chord' para errores
+        kw_token = self._current_token()
         self._consume("CHORD_KW")
         self._consume("LBRACE", "Se esperaba '{' después de 'chord'")
 
-        # Leer todas las notas hasta encontrar una duración o '}'
-        notas = []
-        while self._check("NOTE") and not self._is_at_end():
-            note_token = self._consume("NOTE")
-            if note_token:
-                notas.append(note_token.value)
+        notas, note_pos = [], []      # pitches y (línea, col) de cada nota
+        durations = []                # [(valor, línea, col)]
+        invalid_notes = []            # [(texto, línea, col)] tokens con forma de nota pero inválidos (S8)
+        misplaced_pos = None          # primera nota que aparece DESPUÉS de una duración
 
-        # La duración va al final, compartida por todas las notas
-        duration_token = self._consume(
-            "DURATION", "Se esperaba una duración al final del acorde"
-        )
+        while not self._check("RBRACE") and not self._is_at_end():
+            tok = self._current_token()
+            pos = (tok.lineno, self._get_column(tok))
+            es_nota_mal_formada = (
+                tok.type == "IDENTIFIER" and re.match(r"^[A-Za-z][#b]*\d+$", tok.value)
+            )
+            if tok.type == "NOTE" or es_nota_mal_formada:
+                if durations and misplaced_pos is None:
+                    misplaced_pos = pos
+                if tok.type == "NOTE":
+                    notas.append(tok.value)
+                    note_pos.append(pos)
+                else:
+                    invalid_notes.append((tok.value, *pos))
+                self._advance()
+            elif tok.type == "DURATION":
+                durations.append((tok.value, *pos))
+                self._advance()
+            else:
+                self._add_error_with_suggestions(
+                    tok, f"'{tok.value}' no es válido dentro de un acorde"
+                )
+                self._advance()
+
         self._consume("RBRACE", "Se esperaba '}'")
 
-        if not notas and kw_token:
-            self._add_error(
-                "El acorde debe contener al menos una nota antes de la duración.",
-                token=kw_token,
-            )
-            return None
-
-        if duration_token:
-            return Chord(notas, duration_token.value)
-        return None
+        node = Chord(notas, durations[0][0] if durations else None)
+        node.note_pos = note_pos
+        node.durations = durations
+        node.invalid_notes = invalid_notes
+        node.misplaced_pos = misplaced_pos
+        return self._at(node, kw_token)
 
     def _parse_repeat_statement(self):
         """Parsea repeat a nivel de sentencia: repeat <número> { <sentencias> }"""
-        self._consume("REPEAT_KW")
+        kw = self._consume("REPEAT_KW")
         count_token = self._consume("NUMBER", "Se esperaba un número después de 'repeat'")
         self._consume("LBRACE", "Se esperaba '{'")
 
         statements = []
         while not self._check("RBRACE") and not self._is_at_end():
-            stmt = self._parse_statement()
+            # El cuerpo acepta sentencias globales Y eventos (nota / rest),
+            # p. ej.: repeat 2 { C4 negra rest negra }
+            if self._check("NOTE") or self._check("REST"):
+                stmt = self._parse_event()
+            else:
+                stmt = self._parse_statement()
             if stmt:
                 statements.append(stmt)
 
         self._consume("RBRACE", "Se esperaba '}'")
 
         if count_token:
-            return Repeat(count_token.value, statements)
+            return self._at(Repeat(count_token.value, statements), kw, count_token)
         return None
 
     # EVENTOS (dentro de tracks)
@@ -509,23 +547,23 @@ class BeatScriptParser:
         )
 
         if note_token and duration_token:
-            return Note(note_token.value, duration_token.value)
+            return self._at(Note(note_token.value, duration_token.value), note_token, note_token)
         return None
 
     def _parse_rest(self):
         """Parsea: rest <duración>"""
-        self._consume("REST")
+        kw = self._consume("REST")
         duration_token = self._consume(
             "DURATION", "Se esperaba una duración después de 'rest'"
         )
 
         if duration_token:
-            return Rest(duration_token.value)
+            return self._at(Rest(duration_token.value), kw, duration_token)
         return None
 
     def _parse_repeat_event(self):
         """Parsea repeat a nivel de evento: repeat <número> { <eventos> }"""
-        self._consume("REPEAT_KW")
+        kw = self._consume("REPEAT_KW")
         count_token = self._consume("NUMBER", "Se esperaba un número después de 'repeat'")
         self._consume("LBRACE", "Se esperaba '{'")
 
@@ -538,7 +576,7 @@ class BeatScriptParser:
         self._consume("RBRACE", "Se esperaba '}'")
 
         if count_token:
-            return Repeat(count_token.value, events)
+            return self._at(Repeat(count_token.value, events), kw, count_token)
         return None
 
 

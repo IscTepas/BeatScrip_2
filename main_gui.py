@@ -22,6 +22,7 @@ import customtkinter as ctk
 import pygame
 import os
 from beatscript.parser import BeatScriptParser, ast_to_tree_string, generate_visual_tree
+from beatscript.semantic import analyze as analizar_semantica, SEMANTIC_ERRORS
 
 # Apariencia global
 ctk.set_appearance_mode("dark")
@@ -62,8 +63,11 @@ class BeatScriptIDE(ctk.CTk):
         self.current_ast = None
 
         self._build_toolbar()
-        self._build_main_area()
+        # La consola se construye ANTES del área principal: con pack(), el último
+        # widget empaquetado es el que se queda sin espacio, y así la consola y su
+        # barra de arrastre siempre tienen su altura garantizada.
         self._build_console()
+        self._build_main_area()
         self._cargar_ejemplo()
 
     # ── Barra de herramientas superior ───────────────────────────────────────
@@ -392,9 +396,27 @@ class BeatScriptIDE(ctk.CTk):
 
     #  Consola inferior 
     def _build_console(self):
-        frame = ctk.CTkFrame(self, height=145, corner_radius=8)
+        frame = ctk.CTkFrame(self, height=320, corner_radius=8)
         frame.pack(side="bottom", fill="x", padx=8, pady=8)
         frame.pack_propagate(False)
+
+        # Barra para estirar la consola: arrastra con el mouse hacia arriba/abajo.
+        # Se empaqueta DESPUÉS del frame para quedar justo encima de la consola.
+        asa = tk.Frame(self, height=8, bg="#546e7a", cursor="sb_v_double_arrow")
+        asa.pack(side="bottom", fill="x", padx=8)
+        arrastre = {}
+
+        def _inicio_arrastre(e):
+            arrastre["y"], arrastre["h"] = e.y_root, frame.winfo_height()
+
+        def _arrastrar(e):
+            px = arrastre["h"] + (arrastre["y"] - e.y_root)
+            px = max(80, min(px, self.winfo_height() - 250))
+            a_logico = getattr(frame, "_reverse_widget_scaling", lambda v: v)
+            frame.configure(height=a_logico(px))
+
+        asa.bind("<ButtonPress-1>", _inicio_arrastre)
+        asa.bind("<B1-Motion>", _arrastrar)
 
         ctk.CTkLabel(
             frame,
@@ -690,6 +712,33 @@ class BeatScriptIDE(ctk.CTk):
             )
             return
 
+        # ── ETAPA 3: ANÁLISIS SEMÁNTICO ──────────────────────────────────────
+        # Solo corre si no hubo errores léxicos/sintácticos (necesita un AST completo).
+        # Los errores detienen la compilación; los warnings solo se muestran.
+        self._log("Iniciando análisis semántico...")
+        try:
+            sem = analizar_semantica(ast)
+        except Exception as e:
+            self._log(f"Error durante el análisis semántico: {e}")
+            return
+        self._log("  Análisis semántico completado.")
+
+        for w in sem.warnings:
+            self._log(f"  {w}")
+
+        if sem.errors:
+            for e in sem.errors:
+                self._log(f"  {e}")
+            self._log(
+                f"\nCompilación detenida — {len(sem.errors)} error(es) semántico(s) encontrados."
+            )
+            return
+
+        if len(sem.symbols):
+            self._log("  Tabla de símbolos:")
+            for s in sem.symbols.rows():
+                self._log(f"    {s.kind:<6} {s.name:<20} línea {s.line:<4} instrumento={s.instrument:<12} eventos={s.events}")
+
         # ── SIN ERRORES: mostrar AST y generar MIDI ──────────────────────────
         self.current_ast = ast
         self._mostrar_ast(ast)
@@ -739,7 +788,6 @@ class BeatScriptIDE(ctk.CTk):
             - instrument IDENTIFIER   → instrumento no reconocido en BeatScript
             - tempo no-NUMBER         → tempo seguido de algo que no es número
             - volume no-NUMBER        → volume con valor no numérico
-            - volume NUMBER fuera     → volumen fuera del rango MIDI (0-127)
             - NOTE/REST seguido de NUMBER → nota con octava de más de un dígito (ej: E44)
             - NOTE/REST seguido de IDENTIFIER → duración inválida (ej: negraa)
             - IDENTIFIER con forma de nota → nota mal formada (ej: C4x, D##3)
@@ -755,8 +803,19 @@ class BeatScriptIDE(ctk.CTk):
         import re
         avisos = []
         i = 0
+        en_chord = False          # True mientras estamos dentro de chord { ... }
+        chord_pendiente = False   # True entre la palabra 'chord' y su '{'
         while i < len(tokens):
             tok = tokens[i]
+
+            # Dentro de un chord, las notas mal formadas (H4, Cbb4...) NO se reportan
+            # aquí: las reporta el análisis semántico como S8.
+            if tok.type == "CHORD_KW":
+                chord_pendiente = True
+            elif tok.type == "LBRACE" and chord_pendiente:
+                en_chord, chord_pendiente = True, False
+            elif tok.type == "RBRACE":
+                en_chord = False
 
             if tok.type == "INSTRUMENT_KW":
                 siguiente = tokens[i + 1] if i + 1 < len(tokens) else None
@@ -787,14 +846,6 @@ class BeatScriptIDE(ctk.CTk):
                         f"'volume' requiere un número entre 0 y 127, "
                         f"se encontró '{siguiente.value}'"
                     )
-                elif siguiente and siguiente.type == "NUMBER":
-                    if not (0 <= siguiente.value <= 127):
-                        col = self._calcular_columna(source, siguiente)
-                        avisos.append(
-                            f"[ERROR LÉXICO] Línea {siguiente.lineno}, Col {col}: "
-                            f"volumen {siguiente.value} fuera de rango — "
-                            f"usa un valor entre 0 y 127"
-                        )
 
             elif tok.type in ("NOTE", "REST"):
                 siguiente = tokens[i + 1] if i + 1 < len(tokens) else None
@@ -806,7 +857,7 @@ class BeatScriptIDE(ctk.CTk):
                         f"'{tok.value}{siguiente.value}' parece una nota inválida — "
                         f"el número de octava debe ser un solo dígito: ej: E4, C4, D#3"
                     )
-                elif siguiente and siguiente.type == "IDENTIFIER":
+                elif siguiente and siguiente.type == "IDENTIFIER" and not en_chord:
                     col = self._calcular_columna(source, siguiente)
                     avisos.append(
                         f"[ERROR LÉXICO] Línea {siguiente.lineno}, Col {col}: "
@@ -814,7 +865,7 @@ class BeatScriptIDE(ctk.CTk):
                         f"negra, blanca, corchea, redonda, semicorchea, fusa, semifusa"
                     )
 
-            elif tok.type == "IDENTIFIER":
+            elif tok.type == "IDENTIFIER" and not en_chord:
                 val = tok.value
                 # Detecta posibles notas mal formadas (ej. "C4x", "D##3")
                 if re.match(r"^[A-Ga-g].+\d$", val):
@@ -919,7 +970,7 @@ class BeatScriptIDE(ctk.CTk):
 
         ctk.CTkLabel(
             ventana,
-            text="Clasificacion: Validacion  |  Lexico  |  Sintactico",
+            text="Clasificacion: Validacion  |  Lexico  |  Sintactico  |  Semantico",
             font=ctk.CTkFont(size=11),
             text_color="#546e7a",
         ).pack(anchor="w", padx=24, pady=(0, 12))
@@ -1001,8 +1052,8 @@ class BeatScriptIDE(ctk.CTk):
 
         tarjeta(
             "ERR-VAL-01", "Token de Identificador Corrupto",
-            causa="El lexer genero un identificador que inicia con una letra valida de nota (A-G) pero contiene sufijos invalidos. Ej: E44, Er21",
-            resolucion="Verificar la sintaxis de la nota. El formato estricto es [A-G][#b]?[0-9]",
+            causa="El lexer genero un identificador que inicia con una letra valida de nota (A-G) pero contiene sufijos invalidos. Ej: C4x, D##3, Er21",
+            resolucion="Verificar la sintaxis de la nota. El formato estricto es [A-G][#b]?[0-9]+",
         )
         tarjeta(
             "ERR-VAL-02", "Tipo de Dato Duracion Desconocido",
@@ -1037,6 +1088,16 @@ class BeatScriptIDE(ctk.CTk):
             causa="Fuera de los bloques se uso una palabra clave no definida como declaracion principal. Ej: trackk en lugar de track.",
             resolucion="El compilador entrara en Modo Panico y descartara tokens hasta encontrar una palabra reservada valida. Corregir la palabra clave.",
         )
+
+        # ── Seccion 4: Semantico (se genera desde la tabla SEMANTIC_ERRORS) ──
+        seccion("4. Errores Semanticos  (Semantic Errors)")
+
+        for codigo, info in SEMANTIC_ERRORS.items():
+            tarjeta(
+                f"ERR-SEM-{codigo}", f"{info['rule']}  [{info['severity']}]",
+                causa=f"{info['cause']} Ej: {info['example']}",
+                resolucion=info["fix"],
+            )
 
         ctk.CTkButton(
             ventana,

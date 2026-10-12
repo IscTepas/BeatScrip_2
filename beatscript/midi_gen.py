@@ -108,9 +108,9 @@ def note_to_midi(note_str: str) -> int:
     rest   = s[1:]
     # Detecta si hay alteración: el segundo carácter es # o B con dígito después
     if rest and rest[0] in ('#', 'B') and len(rest) > 1:
-        alt, octave = rest[0], int(rest[1])
+        alt, octave = rest[0], int(rest[1:])
     else:
-        alt, octave = '', int(rest[0])
+        alt, octave = '', int(rest)
     pitch = NOTE_SEMITONES[letter] + (octave + 1) * 12
     if alt == '#': pitch += 1   # Sostenido: sube un semitono
     if alt == 'B': pitch -= 1   # Bemol: baja un semitono

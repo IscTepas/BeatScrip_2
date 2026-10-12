@@ -156,6 +156,7 @@ chord {
 - [x] Etapa 2: Analizador Sintactico (Parser) + AST — LL(1) recursivo descendente, 9 nodos AST, Modo Panico
 - [x] Etapa 3: Validacion post-lexica — filtro de patrones invalidos entre Lexer y Parser
 - [x] Etapa 4: Generacion de codigo MIDI — tokens → archivo .mid con midiutil
+- [x] Fase 3: Análisis Semántico — recorre el AST, tabla de símbolos y reglas S1–S8 (`beatscript/semantic.py`, errores `[ERROR SEMÁNTICO] Línea X, Col Y`)
 - [x] Etapa 5: Interfaz visual — IDE completo con resaltado de sintaxis, tabla de tokens, arbol AST, consola
 
 ## Equipo

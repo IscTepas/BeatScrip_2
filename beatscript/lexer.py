@@ -160,7 +160,7 @@ t_RBRACE = r"\}"
 # Ejemplos válidos:  C4  D#3  Eb5  G0  Bb4  F#7
 # Ejemplos inválidos: C  D#  bass  B (sin octava)
 def t_NOTE(t):
-    r"[A-Ga-g][#b]?[0-9]"
+    r"[A-Ga-g][#b]?[0-9]+"
     # Normaliza a mayúsculas para que c4, C4 y C4 sean equivalentes
     # y el resto del pipeline trabaje con un formato uniforme.
     t.value = t.value.upper()   # c4 → C4, eb3 → EB3
