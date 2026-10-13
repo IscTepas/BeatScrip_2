@@ -1,0 +1,51 @@
+# ============================================================
+# ejemplo_errores_semanticos.bs
+# Archivo de prueba: contiene UN error por cada regla semántica
+# (S1 a S8) a propósito, para abrirlo en el IDE (main_gui.py) o
+# compilarlo por consola y ver los 8 diagnósticos en la pestaña
+# de errores / consola del análisis semántico.
+#
+# Es sintácticamente válido (el parser no debe marcar nada aquí) —
+# todos los errores de abajo son de SIGNIFICADO, no de forma.
+# ============================================================
+
+# --- S7 (Warning): se usan notas SIN haber definido 'instrument' antes ---
+track inicio {
+    C4 negra
+}
+
+# --- S1 (Error): tempo fuera de [20, 400] ---
+tempo 5000
+
+# --- S2 (Error): volume fuera de [0, 127] ---
+volume 150
+
+instrument piano
+
+# --- S3 (Error): nota fuera del rango MIDI 0-127 (C10 = MIDI 132) ---
+track agudos {
+    C10 negra
+}
+
+# --- S4 (Error): repeat con N < 1 ---
+repeat 0 {
+    C4 negra
+}
+
+# --- S5 (Error): nombre de track repetido ---
+track melodia {
+    C4 negra
+}
+track melodia {
+    D4 negra
+}
+
+# --- S6 (Error): chord con dos duraciones (debe ir solo UNA, al final) ---
+chord {
+    C4 E4 negra blanca
+}
+
+# --- S8 (Error): nota inválida dentro de un chord ('H' no existe, solo A-G) ---
+chord {
+    H4 E4 blanca
+}
